@@ -115,18 +115,22 @@ class TranslationServerHandler(http.server.SimpleHTTPRequestHandler):
                     f"\nAfter translation, extract key vocabulary words or short phrases from the {vocab_name} text (non-Korean language).\n"
                     f"Rules for word extraction:\n"
                     f"- Extract key words/phrases that are useful for language learning.\n"
-                    f"- For each word, provide:\n"
+                    f"- For EVERY word, provide ALL these fields in JSON:\n"
                     f"  * 'word': the spelling in the original foreign language (e.g., 'book', '本', 'café')\n"
-                    f"  * 'translation': Korean translation (field: 'translation')\n"
-                    f"  * 'language': the language name in English (field: 'language', e.g., 'English', 'Japanese', 'Chinese', etc.)\n"
-                    f"  * For Japanese ONLY:\n"
-                    f"    - 'kanji': the kanji/hiragana form (e.g., 食べる)\n"
-                    f"    - 'furigana': the hiragana reading with ruby text format (e.g., たべる)\n"
-                    f"    - 'base_form': the base form (dictionary form) of the word if it's a verb conjugation. For example, if the word is 食べている, the base_form is 食べる. If it's already in base form, set base_form to the same as kanji.\n"
-                    f"  * For non-Japanese languages, set kanji, furigana, and base_form to null.\n"
-                    f"- If the vocabulary language is Korean (because both are Korean or similar), extract words in the other language instead.\n"
+                    f"  * 'translation': Korean translation\n"
+                    f"  * 'language': the language name in English (e.g., 'English', 'Japanese', 'Chinese')\n"
+                    f"  * 'kanji': (REQUIRED for ALL words) the kanji/hiragana form if Japanese (e.g., 食べる), or null for non-Japanese\n"
+                    f"  * 'furigana': (REQUIRED for ALL words) the hiragana reading if Japanese (e.g., たべる), or null for non-Japanese\n"
+                    f"  * 'base_form': (REQUIRED for ALL words) the base form (dictionary form) of Japanese verbs (e.g., if word is 食べている, base_form is 食べる), or null for non-Japanese\n"
+                    f"\nEXAMPLE for Japanese:\n"
+                    f'  {{"word": "食べている", "translation": "먹고 있습니다", "language": "Japanese", "kanji": "食べている", "furigana": "たべている", "base_form": "食べる"}}\n'
+                    f'  {{"word": "毎日", "translation": "매일", "language": "Japanese", "kanji": "毎日", "furigana": "まいにち", "base_form": "毎日"}}\n'
+                    f"\nEXAMPLE for non-Japanese:\n"
+                    f'  {{"word": "book", "translation": "책", "language": "English", "kanji": null, "furigana": null, "base_form": null}}\n'
+                    f"\n- If the vocabulary language is Korean (because both are Korean or similar), extract words in the other language instead.\n"
                     f"- Skip common grammar particles, basic prepositions, or pronouns unless they are important vocabulary.\n"
                     f"- Extract a maximum of 15 words.\n"
+                    f"- ALL 6 fields (word, translation, language, kanji, furigana, base_form) must be present in EVERY word object.\n"
                     f"- Return the output as a valid JSON object matching the requested schema.\n"
                 )
                 
