@@ -1,0 +1,12 @@
+{
+    "rewrites": [
+        {
+            "source": "/config",
+            "destination": "/api/config"
+        },
+        {
+            "source": "/api/translate",
+            "destination": "/api/translate"
+        }
+    ]
+}
