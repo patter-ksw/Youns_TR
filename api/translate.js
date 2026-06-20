@@ -1,8 +1,9 @@
 // Vercel Serverless Function: /api/translate
 // Gemini API를 호출하여 번역 및 단어 추출을 수행합니다.
 // 기존 server.py의 /api/translate 엔드포인트를 Node.js로 포팅한 버전입니다.
+const https = require('https');
 
-export const config = {
+module.exports.config = {
     api: {
         bodyParser: {
             sizeLimit: '10mb', // 이미지 업로드를 위해 크기 제한 확장
@@ -10,7 +11,7 @@ export const config = {
     },
 };
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -178,19 +179,35 @@ export default async function handler(req, res) {
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
 
     try {
-        const geminiResponse = await fetch(geminiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
+        // Node.js https 모듈을 사용하여 Gemini API 호출
+        const geminiData = await new Promise((resolve, reject) => {
+            const bodyStr = JSON.stringify(payload);
+            const urlObj = new URL(geminiUrl);
+            const options = {
+                hostname: urlObj.hostname,
+                path: urlObj.pathname + urlObj.search,
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Content-Length': Buffer.byteLength(bodyStr),
+                },
+            };
+            const req2 = https.request(options, (res2) => {
+                let data = '';
+                res2.on('data', (chunk) => { data += chunk; });
+                res2.on('end', () => {
+                    if (res2.statusCode >= 200 && res2.statusCode < 300) {
+                        try { resolve(JSON.parse(data)); } catch (e) { reject(new Error('Gemini 응답 파싱 실패: ' + data)); }
+                    } else {
+                        reject(new Error(`Gemini API 오류 (${res2.statusCode}): ${data}`));
+                    }
+                });
+            });
+            req2.on('error', reject);
+            req2.write(bodyStr);
+            req2.end();
         });
 
-        if (!geminiResponse.ok) {
-            const errText = await geminiResponse.text();
-            console.error('Gemini API Error:', errText);
-            return res.status(502).json({ error: `Gemini API 오류 (${geminiResponse.status}): ${errText}` });
-        }
-
-        const geminiData = await geminiResponse.json();
         const candidates = geminiData.candidates || [];
 
         if (!candidates.length) {
