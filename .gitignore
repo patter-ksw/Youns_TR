@@ -1,0 +1,36 @@
+# Environment variables
+.env
+.env.local
+
+# Node modules
+node_modules/
+package-lock.json
+yarn.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.Python
+
+# Logs
+*.log
+npm-debug.log*
+
+# Misc
+.cache/
+temp/
+tmp/
