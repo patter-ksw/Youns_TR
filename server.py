@@ -112,26 +112,44 @@ class TranslationServerHandler(http.server.SimpleHTTPRequestHandler):
                     prompt += f"Original text to translate:\n\"\"\"\n{text}\n\"\"\"\n"
                 
                 prompt += (
-                    f"\nAfter translation, extract key vocabulary words or short phrases from the {vocab_name} text (non-Korean language).\n"
-                    f"Rules for word extraction:\n"
-                    f"- Extract key words/phrases that are useful for language learning.\n"
-                    f"- For EVERY word, provide ALL these fields in JSON:\n"
-                    f"  * 'word': the spelling in the original foreign language (e.g., 'book', '本', 'café')\n"
-                    f"  * 'translation': Korean translation\n"
-                    f"  * 'language': the language name in English (e.g., 'English', 'Japanese', 'Chinese')\n"
-                    f"  * 'kanji': (REQUIRED for ALL words) the kanji/hiragana form if Japanese (e.g., 食べる), or null for non-Japanese\n"
-                    f"  * 'furigana': (REQUIRED for ALL words) the hiragana reading if Japanese (e.g., たべる), or null for non-Japanese\n"
-                    f"  * 'base_form': (REQUIRED for ALL words) the base form (dictionary form) of Japanese verbs (e.g., if word is 食べている, base_form is 食べる), or null for non-Japanese\n"
-                    f"\nEXAMPLE for Japanese:\n"
+                    f"\n=== VOCABULARY EXTRACTION PHASE ===\n"
+                    f"Extract key vocabulary words/phrases from the {vocab_name} text.\n"
+                    f"\n### CRITICAL INSTRUCTIONS (MUST FOLLOW):\n"
+                    f"1. For EVERY extracted word, you MUST produce ALL 6 fields:\n"
+                    f"   - word (original language)\n"
+                    f"   - translation (Korean)\n"
+                    f"   - language (English name)\n"
+                    f"   - kanji (Japanese kanji/hiragana, or empty string \"\" for non-Japanese)\n"
+                    f"   - furigana (Japanese reading, or empty string \"\" for non-Japanese)\n"
+                    f"   - base_form (Japanese dictionary form, or empty string \"\" for non-Japanese)\n"
+                    f"\n2. NO EXCEPTIONS: Every field MUST be present in every word object.\n"
+                    f"\n3. For Japanese words:\n"
+                    f"   - kanji: Write the word exactly as it appears (kanji + hiragana mix)\n"
+                    f"   - furigana: Pure hiragana reading (e.g., たべる)\n"
+                    f"   - base_form: Dictionary form of verbs (if verb is 食べている → 食べる; if already dictionary form → same as kanji)\n"
+                    f"\n4. For non-Japanese:\n"
+                    f"   - kanji: \"\" (empty string)\n"
+                    f"   - furigana: \"\" (empty string)\n"
+                    f"   - base_form: \"\" (empty string)\n"
+                    f"\n### EXAMPLES (STRICT FORMAT):\n"
+                    f"Japanese verb conjugation:\n"
                     f'  {{"word": "食べている", "translation": "먹고 있습니다", "language": "Japanese", "kanji": "食べている", "furigana": "たべている", "base_form": "食べる"}}\n'
-                    f'  {{"word": "毎日", "translation": "매일", "language": "Japanese", "kanji": "毎日", "furigana": "まいにち", "base_form": "毎日"}}\n'
-                    f"\nEXAMPLE for non-Japanese:\n"
-                    f'  {{"word": "book", "translation": "책", "language": "English", "kanji": null, "furigana": null, "base_form": null}}\n'
-                    f"\n- If the vocabulary language is Korean (because both are Korean or similar), extract words in the other language instead.\n"
-                    f"- Skip common grammar particles, basic prepositions, or pronouns unless they are important vocabulary.\n"
-                    f"- Extract a maximum of 15 words.\n"
-                    f"- ALL 6 fields (word, translation, language, kanji, furigana, base_form) must be present in EVERY word object.\n"
-                    f"- Return the output as a valid JSON object matching the requested schema.\n"
+                    f"Japanese noun:\n"
+                    f'  {{"word": "毎日", "translation": "매일", "language": "Japanese", "kanji": "毎日", "furigana": "まいにち", "base_form": ""}}\n'
+                    f"English:\n"
+                    f'  {{"word": "book", "translation": "책", "language": "English", "kanji": "", "furigana": "", "base_form": ""}}\n'
+                    f"\n### EXTRACTION RULES:\n"
+                    f"- Extract 8-15 important vocabulary words\n"
+                    f"- Skip particles (は, を, に) unless contextually important\n"
+                    f"- Include verbs (show conjugations + base form)\n"
+                    f"- Include nouns and adjectives\n"
+                    f"- For verbs in non-dictionary form, ALWAYS provide base_form\n"
+                    f"\n### OUTPUT VALIDATION:\n"
+                    f"Before returning, verify:\n"
+                    f"- ✓ Every word object has exactly 6 fields\n"
+                    f"- ✓ No fields are missing or null (use \"\" for non-Japanese instead)\n"
+                    f"- ✓ Japanese words have kanji, furigana, base_form filled\n"
+                    f"- ✓ Non-Japanese words have empty strings for kanji/furigana/base_form\n"
                 )
                 
                 # Construct Gemini API Request
@@ -171,7 +189,7 @@ class TranslationServerHandler(http.server.SimpleHTTPRequestHandler):
                                             "furigana": {"type": "STRING", "description": "Japanese furigana (reading), or null for non-Japanese"},
                                             "base_form": {"type": "STRING", "description": "Base form (dictionary form) of Japanese verbs, or null for non-Japanese"}
                                         },
-                                        "required": ["word", "translation", "language"]
+                                        "required": ["word", "translation", "language", "kanji", "furigana", "base_form"]
                                     }
                                 }
                             },
@@ -206,6 +224,10 @@ class TranslationServerHandler(http.server.SimpleHTTPRequestHandler):
                             return
                         
                         response_text = parts[0].get('text', '')
+                        
+                        # Debug: Write Gemini's response to file
+                        with open('gemini_debug.log', 'a', encoding='utf-8') as f:
+                            f.write(f"\n=== Gemini Response ===\n{response_text}\n{'='*50}\n")
                         
                         # Return Gemini's JSON response directly to client
                         self.send_response(200)
