@@ -317,6 +317,27 @@
         </div>
     </div>
 
+    <!-- Download Format Selection Modal -->
+    <div id="download-format-modal" class="modal-overlay">
+        <div class="modal download-modal" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3 class="modal-title">📥 다운로드 형식 선택</h3>
+                <button class="modal-close" onclick="closeModal('download-format-modal')">&times;</button>
+            </div>
+            <div class="modal-body" style="display: flex; flex-direction: column; gap: 15px; padding: 20px 10px;">
+                <p style="margin: 0; text-align: center; color: var(--text-secondary); font-size: 14px;">원하시는 단어장 다운로드 형식을 선택해주세요.</p>
+                
+                <button id="btn-format-xlsx" class="btn btn-primary" style="padding: 14px; justify-content: center; font-size: 15px; font-weight: 600; width: 100%;">
+                    <span>📊</span> Excel 파일로 다운로드 (.xlsx)
+                </button>
+                
+                <button id="btn-format-csv" class="btn btn-accent" style="padding: 14px; justify-content: center; font-size: 15px; font-weight: 600; background: linear-gradient(135deg, #0f9d58, #0b8043); border-color: #0b8043; width: 100%;">
+                    <span>💚</span> Google 스프레드시트용 (.csv)
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Edit Word Modal (Shared for inline modification) -->
     <div id="edit-word-modal" class="modal-overlay">
         <div class="modal edit-modal-inner">

@@ -3,6 +3,7 @@ let supabaseClient = null;
 let currentUser = null;
 let currentFile = null; // { name, size, mime_type, base64Data }
 let extractedWords = []; // List of words extracted from current translation
+let exportWordbookType = 'my'; // 'my' or 'global'
 
 // Active TTS button tracker
 let activeSpeechButton = null;
@@ -217,13 +218,34 @@ function setupEventListeners() {
     document.getElementById('global-wordbook-search').addEventListener('input', filterGlobalWordbook);
     document.getElementById('global-wordbook-lang').addEventListener('change', loadGlobalWordbook);
 
-    // Download Wordbook as Excel
+    // Download Wordbook as Excel -> Now triggers format selection modal
     document.getElementById('btn-download-my-excel').addEventListener('click', () => {
-        downloadWordbookAsExcel(localMyWords, `나만의 단어장_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        exportWordbookType = 'my';
+        openModal('download-format-modal');
     });
     
     document.getElementById('btn-download-global-excel').addEventListener('click', () => {
-        downloadWordbookAsExcel(localGlobalWords, `전체 단어장_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        exportWordbookType = 'global';
+        openModal('download-format-modal');
+    });
+
+    // Format selection buttons
+    document.getElementById('btn-format-xlsx').addEventListener('click', () => {
+        closeModal('download-format-modal');
+        if (exportWordbookType === 'my') {
+            downloadWordbookAsExcel(localMyWords, `나만의 단어장_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        } else {
+            downloadWordbookAsExcel(localGlobalWords, `전체 단어장_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        }
+    });
+
+    document.getElementById('btn-format-csv').addEventListener('click', () => {
+        closeModal('download-format-modal');
+        if (exportWordbookType === 'my') {
+            downloadWordbookAsCSV(localMyWords, `나만의 단어장_${new Date().toISOString().slice(0, 10)}.csv`);
+        } else {
+            downloadWordbookAsCSV(localGlobalWords, `전체 단어장_${new Date().toISOString().slice(0, 10)}.csv`);
+        }
     });
 
     // Copy Translation Result
@@ -1231,5 +1253,81 @@ function downloadWordbookAsExcel(words, filename) {
     } catch (err) {
         console.error('엑셀 생성 오류:', err);
         showToast('엑셀 파일 생성에 실패했습니다.', 'danger');
+    }
+}
+
+// Download Wordbook as Google Sheets compatible UTF-8 CSV with BOM
+function downloadWordbookAsCSV(words, filename) {
+    if (!words || words.length === 0) {
+        showToast('다운로드할 단어가 없습니다.', 'warning');
+        return;
+    }
+
+    const langMap = {
+        'English': '영어',
+        'Japanese': '일본어',
+        'Chinese': '중국어',
+        'Spanish': '스페인어',
+        'French': '프랑스어',
+        'German': '독일어',
+        'ko': '한국어',
+        'en': '영어',
+        'ja': '일본어',
+        'zh': '중국어',
+        'es': '스페인어',
+        'fr': '프랑스어',
+        'de': '독일어'
+    };
+
+    // Generate CSV content with UTF-8 BOM
+    let csvContent = "\uFEFF"; 
+    
+    // Headers
+    csvContent += "국가,단어,한자,요미가나,동사원형 뜻,한국어,등록날짜\n";
+    
+    // Data Rows
+    words.forEach(w => {
+        const mappedLang = langMap[w.language] || w.language || '';
+        const createdDate = w.created_at ? new Date(w.created_at).toISOString().split('T')[0] : '';
+        
+        // Escape CSV special characters
+        const escapeCSVField = (val) => {
+            if (val === null || val === undefined) return '';
+            const strVal = String(val);
+            if (strVal.includes(',') || strVal.includes('"') || strVal.includes('\n') || strVal.includes('\r')) {
+                return `"${strVal.replace(/"/g, '""')}"`;
+            }
+            return strVal;
+        };
+
+        const row = [
+            mappedLang,
+            w.word || '',
+            w.kanji || '',
+            w.furigana || '',
+            w.base_form || '',
+            w.translation || '',
+            createdDate
+        ].map(escapeCSVField).join(',');
+        
+        csvContent += row + "\n";
+    });
+
+    try {
+        // Trigger file download
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", filename);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        showToast(`💚 '${filename}'가 다운로드되었습니다.`);
+    } catch (err) {
+        console.error('CSV 생성 오류:', err);
+        showToast('CSV 파일 생성에 실패했습니다.', 'danger');
     }
 }
