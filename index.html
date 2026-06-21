@@ -95,21 +95,22 @@
                     <div class="pane-footer">
                         <div class="char-count"><span id="current-char-count">0</span> / 5000</div>
                         <div class="source-actions">
-                            <button id="btn-source-tts" class="btn btn-icon" title="입력 음성 듣기" disabled>
-                                <span>🔊</span>
+                            <button id="btn-source-tts" class="btn" title="입력 음성 듣기" disabled>
+                                <span>🔊</span> 듣기
                             </button>
-                            <button id="btn-source-copy" class="btn btn-icon" title="입력 복사" disabled>
-                                <span>📋</span>
+                            <button id="btn-source-copy" class="btn" title="입력 복사" disabled>
+                                <span>📋</span> 복사
                             </button>
-                            <button id="btn-clear-all" class="btn btn-icon" title="지우개 (전체 초기화)">
-                                <span>🧹</span>
+                            <button id="btn-clear-all" class="btn" title="지우개 (전체 초기화)">
+                                <span>🧹</span> 지우개
                             </button>
-                            <label for="file-upload" class="btn btn-icon btn-file" title="파일 첨부">
-                                <span>📎</span>
+                            <label for="file-upload" class="btn btn-file" title="파일 첨부">
+                                <span>📎</span> 파일
                                 <input type="file" id="file-upload" accept=".txt,image/*" style="display: none;">
                             </label>
-                            <button id="btn-translate" class="btn btn-primary btn-icon translate-btn" title="번역하기">
-                                <span>➔</span>
+                            <button id="btn-translate" class="btn btn-primary translate-btn" title="번역하기">
+                                <span>번역하기</span>
+                                <span class="arrow-icon">➔</span>
                             </button>
                         </div>
                     </div>
@@ -141,11 +142,11 @@
 
                     <div class="pane-footer">
                         <div class="target-actions">
-                            <button id="btn-tts" class="btn btn-icon" title="번역 음성 듣기" disabled>
-                                <span>🔊</span>
+                            <button id="btn-tts" class="btn" title="번역 음성 듣기" disabled>
+                                <span>🔊</span> 듣기
                             </button>
-                            <button id="btn-copy" class="btn btn-icon" title="번역 복사" disabled>
-                                <span>📋</span>
+                            <button id="btn-copy" class="btn" title="번역 복사" disabled>
+                                <span>📋</span> 복사
                             </button>
                         </div>
                     </div>
@@ -159,7 +160,7 @@
                         <h3>🔑 문장에서 추출된 단어 목록</h3>
                         <p class="section-subtitle">내가 단어를 선택하여 나만의 단어장에 넣을 수 있습니다.</p>
                     </div>
-                    <button id="btn-add-to-my-words" class="btn btn-primary" disabled>
+                    <button id="btn-add-to-my-words" class="btn btn-primary" style="display: none;" disabled>
                         <span>📥</span> 선택한 단어 내 단어장에 저장
                     </button>
                 </div>

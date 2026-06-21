@@ -423,6 +423,13 @@ header h1 {
     gap: 8px;
 }
 
+.source-actions .btn, .target-actions .btn {
+    padding: 7px 12px;
+    font-size: 0.82rem;
+    gap: 5px;
+    border-radius: 8px;
+}
+
 .btn-swap {
     width: 44px;
     height: 44px;
@@ -797,18 +804,21 @@ header h1 {
     text-align: left;
 }
 
-.wordbook-table th, .wordbook-table td {
-    padding: 12px 15px;
-    border-bottom: 1px solid rgba(139, 92, 246, 0.05);
-}
-
 .wordbook-table th {
-    background: rgba(139, 92, 246, 0.04);
+    padding: 8px 12px;
+    background: #f8f6ff; /* Opaque background to hide scrolling content */
     font-weight: 700;
     color: #311b92;
     position: sticky;
     top: 0;
     z-index: 10;
+    box-shadow: 0 1px 0 rgba(139, 92, 246, 0.15); /* Bottom shadow line */
+}
+
+.wordbook-table td {
+    padding: 6px 12px;
+    border-bottom: 1px solid rgba(139, 92, 246, 0.05);
+    vertical-align: middle;
 }
 
 .wordbook-table tbody tr:hover {

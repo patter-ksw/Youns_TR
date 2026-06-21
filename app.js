@@ -746,7 +746,13 @@ function renderExtractedWordsList() {
 function updateAddWordsButtonState() {
     const checkedBoxes = document.querySelectorAll('.word-checkbox:checked');
     const addBtn = document.getElementById('btn-add-to-my-words');
-    addBtn.disabled = checkedBoxes.length === 0;
+    if (checkedBoxes.length > 0) {
+        addBtn.style.display = 'flex';
+        addBtn.disabled = false;
+    } else {
+        addBtn.style.display = 'none';
+        addBtn.disabled = true;
+    }
 }
 
 // 7. Add Words to User's Wordbook
@@ -776,10 +782,10 @@ async function addSelectedWordsToMyWordbook() {
             base_form: w.base_form || null    // Japanese verb base form
         }));
 
-        // Insert into tr_user_words, ignore duplicate key conflict on (user_id, language, word)
+        // Upsert into tr_user_words, updating on conflict of (user_id, language, word)
         const { error } = await supabaseClient
             .from('tr_user_words')
-            .insert(userWords, { onConflict: 'user_id,language,word', ignoreDuplicates: true });
+            .upsert(userWords, { onConflict: 'user_id,language,word' });
 
         if (error) throw error;
 

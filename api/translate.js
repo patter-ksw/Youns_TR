@@ -100,11 +100,11 @@ export default async function handler(req, res) {
         `English:\n` +
         `  {"word": "book", "translation": "책", "language": "English", "kanji": "", "furigana": "", "base_form": ""}\n` +
         `\n### EXTRACTION RULES:\n` +
-        `- Extract 8-15 important vocabulary words\n` +
-        `- Skip particles (は, を, に) unless contextually important\n` +
-        `- Include verbs (show conjugations + base form)\n` +
-        `- Include nouns and adjectives\n` +
-        `- For verbs in non-dictionary form, ALWAYS provide base_form\n` +
+        `- Extract as many vocabulary words/phrases as possible (up to 25-30 words, minimum 12 words if the text is long enough).\n` +
+        `- For Japanese, you MUST extract words written in Hiragana (e.g. adverbs, conjunctions) and Katakana (e.g. loanwords) as well as Kanji words. Do not limit to only words containing Kanji.\n` +
+        `- Include verbs, nouns, adjectives, adverbs, conjunctions, and katakana loanwords.\n` +
+        `- For verbs, adjectives, and inflected words in non-dictionary form, ALWAYS provide their base_form.\n` +
+        `- Skip basic grammatical particles (은/는/이/가 in Korean, or は/が/を/에/에/に in Japanese) unless they are part of a compound phrase.\n` +
         `\n### OUTPUT VALIDATION:\n` +
         `Before returning, verify:\n` +
         `- ✓ Every word object has exactly 6 fields\n` +
