@@ -982,3 +982,19 @@ header h1 {
     color: var(--accent-purple);
 }
 
+/* Responsive Wordbook Table for Mobile */
+@media (max-width: 768px) {
+    .wordbook-table th {
+        width: auto !important;
+        white-space: nowrap;
+    }
+    
+    .wordbook-table .col-translation {
+        min-width: 150px;
+    }
+    
+    .wordbook-table .col-word {
+        min-width: 120px;
+    }
+}
+
