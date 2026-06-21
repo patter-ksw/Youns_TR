@@ -85,9 +85,13 @@ export default async function handler(req, res) {
         `   - base_form (Japanese dictionary form, or empty string "" for non-Japanese)\n` +
         `\n2. NO EXCEPTIONS: Every field MUST be present in every word object.\n` +
         `\n3. For Japanese words:\n` +
-        `   - kanji: Write the word exactly as it appears (kanji + hiragana mix)\n` +
-        `   - furigana: Pure hiragana reading (e.g., たべる)\n` +
-        `   - base_form: Dictionary form of verbs (if verb is 食べている → 食べる; if already dictionary form → same as kanji)\n` +
+        `   - If the word contains Kanji:\n` +
+        `     - kanji: The kanji/hiragana mixture form of the word (e.g., 食べている)\n` +
+        `     - furigana: Pure hiragana reading of the kanji (e.g., たべている)\n` +
+        `   - If the word contains NO Kanji (pure hiragana or katakana, e.g. ゆっくり, パン):\n` +
+        `     - kanji: "" (empty string)\n` +
+        `     - furigana: "" (empty string)\n` +
+        `   - base_form: Dictionary form of verbs/adjectives (if it is a verb or adjective conjugation e.g. 食べている -> 食べる; if it is not inflected or already dictionary form, set to "" empty string)\n` +
         `\n4. For non-Japanese:\n` +
         `   - kanji: "" (empty string)\n` +
         `   - furigana: "" (empty string)\n` +
@@ -97,6 +101,8 @@ export default async function handler(req, res) {
         `  {"word": "食べている", "translation": "먹고 있습니다", "language": "Japanese", "kanji": "食べている", "furigana": "たべている", "base_form": "食べる"}\n` +
         `Japanese noun:\n` +
         `  {"word": "毎日", "translation": "매일", "language": "Japanese", "kanji": "毎日", "furigana": "まいにち", "base_form": ""}\n` +
+        `Japanese hiragana word:\n` +
+        `  {"word": "ゆっくり", "translation": "천천히", "language": "Japanese", "kanji": "", "furigana": "", "base_form": ""}\n` +
         `English:\n` +
         `  {"word": "book", "translation": "책", "language": "English", "kanji": "", "furigana": "", "base_form": ""}\n` +
         `\n### EXTRACTION RULES:\n` +
@@ -207,6 +213,33 @@ export default async function handler(req, res) {
 
         // Parse and return Gemini's JSON response
         const result = JSON.parse(responseText);
+
+        // Deterministic post-processing for Japanese words
+        if (result.words && Array.isArray(result.words)) {
+            result.words = result.words.map(w => {
+                if (w.word) w.word = w.word.trim();
+                if (w.translation) w.translation = w.translation.trim();
+                if (w.kanji) w.kanji = w.kanji.trim();
+                if (w.furigana) w.furigana = w.furigana.trim();
+                if (w.base_form) w.base_form = w.base_form.trim();
+
+                if (w.language === 'Japanese' || w.language === 'ja') {
+                    // Check if word contains any Kanji characters
+                    const hasKanji = /[\u4e00-\u9faf\u3400-\u4dbf]/.test(w.word || '');
+                    if (!hasKanji) {
+                        // Pure hiragana/katakana word: clear kanji and furigana fields
+                        w.kanji = "";
+                        w.furigana = "";
+                    }
+                    // Clear redundant base form if identical to the word or kanji
+                    if (w.base_form === w.word || w.base_form === w.kanji) {
+                        w.base_form = "";
+                    }
+                }
+                return w;
+            });
+        }
+
         return res.status(200).json(result);
     } catch (err) {
         console.error('Translation handler error:', err);

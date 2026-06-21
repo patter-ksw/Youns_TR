@@ -217,7 +217,7 @@ header h1 {
 /* Translator Grid Layout */
 .translator-grid {
     display: grid;
-    grid-template-columns: 1fr auto 1fr;
+    grid-template-columns: 1fr 1fr;
     gap: 15px;
     align-items: stretch;
 }
@@ -225,11 +225,6 @@ header h1 {
 @media (max-width: 768px) {
     .translator-grid {
         grid-template-columns: 1fr;
-    }
-    
-    .btn-swap {
-        transform: rotate(90deg);
-        margin: 10px auto !important;
     }
 }
 
@@ -430,30 +425,6 @@ header h1 {
     border-radius: 8px;
 }
 
-.btn-swap {
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    border: 1px solid var(--border-color);
-    background: #ffffff;
-    color: var(--accent-purple);
-    font-size: 1.2rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    align-self: center;
-    margin: 0 5px;
-    box-shadow: 0 4px 10px rgba(139, 92, 246, 0.08);
-    transition: all 0.2s ease;
-}
-
-.btn-swap:hover {
-    background: var(--accent-purple);
-    color: #ffffff;
-    transform: scale(1.1);
-    box-shadow: 0 6px 15px rgba(139, 92, 246, 0.2);
-}
 
 .translate-btn {
     padding-left: 22px;

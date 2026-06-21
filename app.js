@@ -136,24 +136,6 @@ function setupEventListeners() {
         document.getElementById('btn-source-tts').disabled = !hasText;
     });
 
-    // Swap Languages
-    document.getElementById('btn-swap-langs').addEventListener('click', () => {
-        stopSpeech();
-        const sourceLangSelect = document.getElementById('source-lang');
-        const targetLangSelect = document.getElementById('target-lang');
-        
-        const sourceVal = sourceLangSelect.value;
-        const targetVal = targetLangSelect.value;
-        
-        // Cannot set target lang to 'auto'
-        if (sourceVal === 'auto') {
-            sourceLangSelect.value = targetVal;
-            targetLangSelect.value = 'ko'; // default target
-        } else {
-            sourceLangSelect.value = targetVal;
-            targetLangSelect.value = sourceVal;
-        }
-    });
 
     // Language Selector Stops Speech
     document.getElementById('source-lang').addEventListener('change', stopSpeech);
@@ -697,13 +679,14 @@ function renderExtractedWordsList() {
 
         // Build word display for Japanese: show kanji (furigana), base_form if different
         let wordDisplay = escapeHtml(wordObj.word);
-        if (wordObj.language === 'Japanese' && wordObj.kanji) {
-            // Show kanji with furigana
-            wordDisplay = escapeHtml(wordObj.kanji);
-            if (wordObj.furigana) {
-                wordDisplay += `<br><span style="font-size: 0.85em; color: var(--text-secondary);">${escapeHtml(wordObj.furigana)}</span>`;
+        if (wordObj.language === 'Japanese' || wordObj.language === 'ja') {
+            if (wordObj.kanji) {
+                wordDisplay = escapeHtml(wordObj.kanji);
+                if (wordObj.furigana) {
+                    wordDisplay += `<br><span style="font-size: 0.85em; color: var(--text-secondary);">${escapeHtml(wordObj.furigana)}</span>`;
+                }
             }
-            // Show base form if different from original
+            // Show base form if different from original word
             if (wordObj.base_form && wordObj.base_form !== wordObj.word) {
                 wordDisplay += `<br><span style="font-size: 0.8em; color: var(--text-muted);">(원형: ${escapeHtml(wordObj.base_form)})</span>`;
             }
