@@ -153,7 +153,7 @@ class TranslationServerHandler(http.server.SimpleHTTPRequestHandler):
                 )
                 
                 # Construct Gemini API Request
-                gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
+                gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={gemini_key}"
                 
                 parts = [{"text": prompt}]
                 if image_data:
@@ -230,11 +230,14 @@ class TranslationServerHandler(http.server.SimpleHTTPRequestHandler):
                             f.write(f"\n=== Gemini Response ===\n{response_text}\n{'='*50}\n")
                         
                         # Return Gemini's JSON response directly to client
-                        self.send_response(200)
-                        self.send_header('Content-Type', 'application/json; charset=utf-8')
-                        self.send_header('Access-Control-Allow-Origin', '*')
-                        self.end_headers()
-                        self.wfile.write(response_text.encode('utf-8'))
+                        try:
+                            self.send_response(200)
+                            self.send_header('Content-Type', 'application/json; charset=utf-8')
+                            self.send_header('Access-Control-Allow-Origin', '*')
+                            self.end_headers()
+                            self.wfile.write(response_text.encode('utf-8'))
+                        except ConnectionError:
+                            pass
                         
                 except urllib.error.HTTPError as e:
                     error_msg = e.read().decode('utf-8')
@@ -250,11 +253,14 @@ class TranslationServerHandler(http.server.SimpleHTTPRequestHandler):
             self.send_error(404, "Not Found")
 
     def send_error_json(self, status_code, message):
-        self.send_response(status_code)
-        self.send_header('Content-Type', 'application/json; charset=utf-8')
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.end_headers()
-        self.wfile.write(json.dumps({'error': message}, ensure_ascii=False).encode('utf-8'))
+        try:
+            self.send_response(status_code)
+            self.send_header('Content-Type', 'application/json; charset=utf-8')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({'error': message}, ensure_ascii=False).encode('utf-8'))
+        except ConnectionError:
+            pass
 
 if __name__ == '__main__':
     # Force current working directory to script directory
