@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <!-- Linear Gradient for background -->
+    <linearGradient id="purpleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#9d4edd" />
+      <stop offset="50%" stop-color="#7b2cbf" />
+      <stop offset="100%" stop-color="#5a189a" />
+    </linearGradient>
+    <!-- Glow/Shadow filter -->
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#5a189a" flood-opacity="0.3" />
+    </filter>
+  </defs>
+  <!-- Main circle with shadow -->
+  <circle cx="50" cy="50" r="45" fill="url(#purpleGrad)" stroke="rgba(255, 255, 255, 0.4)" stroke-width="2" filter="url(#shadow)" />
+  <!-- Inner decorative dotted ring -->
+  <circle cx="50" cy="50" r="38" fill="none" stroke="rgba(255, 255, 255, 0.2)" stroke-width="1.5" stroke-dasharray="4 3" />
+  <!-- Text YTR -->
+  <text x="50" y="58" font-family="'Outfit', 'Inter', 'Segoe UI', sans-serif" font-size="24" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="-0.03em">YTR</text>
+</svg>

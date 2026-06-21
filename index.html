@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Youn's Translator - 다국어 번역 & 단어장</title>
     <link rel="stylesheet" href="index.css">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="apple-touch-icon" href="favicon.svg">
     <!-- Supabase JS Client -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -13,6 +15,19 @@
         <!-- Header -->
         <header>
             <div class="header-text">
+                <svg class="header-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+                    <linearGradient id="purpleGradInline" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#9d4edd" />
+                        <stop offset="50%" stop-color="#7b2cbf" />
+                        <stop offset="100%" stop-color="#5a189a" />
+                    </linearGradient>
+                    <filter id="shadowInline" x="-10%" y="-10%" width="120%" height="120%">
+                        <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#5a189a" flood-opacity="0.3" />
+                    </filter>
+                    <circle cx="50" cy="50" r="45" fill="url(#purpleGradInline)" stroke="rgba(255, 255, 255, 0.4)" stroke-width="2" filter="url(#shadowInline)" />
+                    <circle cx="50" cy="50" r="38" fill="none" stroke="rgba(255, 255, 255, 0.2)" stroke-width="1.5" stroke-dasharray="4 3" />
+                    <text x="50" y="58" font-family="'Outfit', 'Inter', sans-serif" font-size="24" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="-0.03em">YTR</text>
+                </svg>
                 <h1 id="app-title">Youn's Translator</h1>
             </div>
             
