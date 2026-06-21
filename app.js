@@ -268,6 +268,20 @@ function setupEventListeners() {
 
     // Modal forms submission
     document.getElementById('edit-word-form').addEventListener('submit', handleWordEditSubmit);
+
+    // Toggle password visibility
+    document.querySelectorAll('.btn-toggle-password').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const input = btn.previousElementSibling;
+            if (input.type === 'password') {
+                input.type = 'text';
+                btn.innerText = '🙈';
+            } else {
+                input.type = 'password';
+                btn.innerText = '👁️';
+            }
+        });
+    });
 }
 
 // 4. File Attachment Handler
@@ -371,7 +385,11 @@ async function handleLogin(e) {
         }
     } catch (err) {
         console.error('로그인 에러:', err);
-        showToast('로그인 처리 중 오류 발생', 'danger');
+        if (err.code === '42501') {
+            showToast('🚨 데이터베이스 보안 정책(RLS)으로 인해 로그인을 할 수 없습니다. RLS 비활성화가 필요합니다.', 'danger');
+        } else {
+            showToast(`로그인 오류: ${err.message || '처리 중 오류 발생'}`, 'danger');
+        }
     } finally {
         showLoading(false);
     }
@@ -427,7 +445,13 @@ async function handleSignup(e) {
         }
     } catch (err) {
         console.error('회원가입 오류:', err);
-        showToast('회원가입 처리 중 오류 발생', 'danger');
+        if (err.code === '42501') {
+            showToast('🚨 데이터베이스 보안 정책(RLS)으로 인해 회원가입을 할 수 없습니다. RLS 비활성화가 필요합니다.', 'danger');
+        } else if (err.code === '23505' || err.message?.includes('duplicate key')) {
+            showToast('⚠️ 이미 존재하는 아이디입니다.', 'danger');
+        } else {
+            showToast(`회원가입 오류: ${err.message || '처리 중 오류 발생'}`, 'danger');
+        }
     } finally {
         showLoading(false);
     }
