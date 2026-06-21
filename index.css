@@ -32,7 +32,7 @@ body {
     color: var(--text-primary);
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     min-height: 100vh;
-    padding: 40px 20px;
+    padding: 16px 20px;
     background-image: 
         linear-gradient(rgba(247, 243, 251, 0.84), rgba(247, 243, 251, 0.84)),
         url('bright_nature_playground_bg.png');
@@ -59,10 +59,10 @@ header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 30px;
+    margin-bottom: 15px;
     border-bottom: 1px solid rgba(139, 92, 246, 0.08);
-    padding-bottom: 20px;
-    min-height: 80px;
+    padding-bottom: 10px;
+    min-height: 70px;
     flex-wrap: wrap;
     gap: 15px;
 }
@@ -179,7 +179,7 @@ header p {
 .translator-workspace {
     display: flex;
     flex-direction: column;
-    gap: 30px;
+    gap: 15px;
     flex-grow: 1;
 }
 
@@ -207,7 +207,7 @@ header p {
     background: var(--card-bg);
     border: 1px solid var(--border-color);
     border-radius: 20px;
-    padding: 20px;
+    padding: 15px;
     backdrop-filter: blur(12px);
     box-shadow: var(--card-shadow);
     display: flex;
@@ -224,9 +224,9 @@ header p {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
     border-bottom: 1px solid rgba(139, 92, 246, 0.06);
-    padding-bottom: 10px;
+    padding-bottom: 6px;
 }
 
 .lang-select {
@@ -376,9 +376,9 @@ header p {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-top: 15px;
+    margin-top: 10px;
     border-top: 1px solid rgba(139, 92, 246, 0.06);
-    padding-top: 15px;
+    padding-top: 10px;
 }
 
 .char-count {
@@ -435,7 +435,7 @@ header p {
     background: var(--card-bg);
     border: 1px solid var(--border-color);
     border-radius: 20px;
-    padding: 24px;
+    padding: 16px;
     backdrop-filter: blur(12px);
     box-shadow: var(--card-shadow);
     animation: fadeIn 0.4s ease-out;
@@ -445,9 +445,9 @@ header p {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
+    margin-bottom: 12px;
     border-bottom: 1px solid rgba(139, 92, 246, 0.06);
-    padding-bottom: 12px;
+    padding-bottom: 8px;
     flex-wrap: wrap;
     gap: 15px;
 }
