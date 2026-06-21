@@ -1,0 +1,8 @@
+# Python backend files - ignored on Vercel to avoid Python runtime build conflicts
+requirements.txt
+server.py
+schema.sql
+.venv/
+__pycache__/
+*.log
+gemini_debug.log
