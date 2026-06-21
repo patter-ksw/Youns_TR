@@ -16,12 +16,19 @@ async function initSupabase() {
     try {
         const response = await fetch('/config');
         if (!response.ok) {
-            throw new Error('서버로부터 설정을 가져오지 못했습니다.');
+            let errorText = `서버 오류 (${response.status})`;
+            try {
+                const errJson = await response.json();
+                if (errJson && errJson.error) {
+                    errorText = errJson.error;
+                }
+            } catch (_) {}
+            throw new Error(errorText);
         }
         const config = await response.json();
         
         if (!config.SUPABASE_URL || !config.SUPABASE_KEY) {
-            showToast('⚠️ Supabase 설정이 비어있습니다. .env.local을 확인해 주세요.', 'danger');
+            showToast('⚠️ Supabase URL 또는 Key가 비어있습니다.', 'danger');
             return;
         }
 
@@ -29,7 +36,7 @@ async function initSupabase() {
         supabaseClient = createClient(config.SUPABASE_URL, config.SUPABASE_KEY);
     } catch (error) {
         console.error('Supabase 초기화 오류:', error);
-        showToast('🚨 Supabase 서버 연결에 실패했습니다.', 'danger');
+        showToast(`🚨 Supabase 연결 실패: ${error.message}`, 'danger');
     }
 }
 
