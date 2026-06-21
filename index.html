@@ -93,6 +93,15 @@
                     <div class="pane-footer">
                         <div class="char-count"><span id="current-char-count">0</span> / 5000</div>
                         <div class="source-actions">
+                            <button id="btn-source-tts" class="btn" title="입력 음성 듣기" disabled>
+                                <span>🔊</span> 듣기
+                            </button>
+                            <button id="btn-source-copy" class="btn" title="입력 복사" disabled>
+                                <span>📋</span> 복사
+                            </button>
+                            <button id="btn-clear-all" class="btn" title="전체 초기화">
+                                <span>🧹</span> 지우개
+                            </button>
                             <label for="file-upload" class="btn btn-file">
                                 <span>📎</span> 파일 첨부
                                 <input type="file" id="file-upload" accept=".txt,image/*" style="display: none;">

@@ -117,6 +117,9 @@ function setupEventListeners() {
     const charCount = document.getElementById('current-char-count');
     sourceText.addEventListener('input', () => {
         charCount.innerText = sourceText.value.length;
+        const hasText = sourceText.value.trim().length > 0;
+        document.getElementById('btn-source-copy').disabled = !hasText;
+        document.getElementById('btn-source-tts').disabled = !hasText;
     });
 
     // Swap Languages
@@ -266,6 +269,72 @@ function setupEventListeners() {
         }
     });
 
+    // Copy Input Text
+    const sourceCopyBtn = document.getElementById('btn-source-copy');
+    sourceCopyBtn.addEventListener('click', () => {
+        const text = document.getElementById('source-text').value;
+        navigator.clipboard.writeText(text).then(() => {
+            showToast('📋 입력한 텍스트가 클립보드에 복사되었습니다.');
+        }).catch(err => {
+            showToast('복사에 실패했습니다.', 'danger');
+        });
+    });
+
+    // Input TTS Audio Player
+    const sourceTtsBtn = document.getElementById('btn-source-tts');
+    sourceTtsBtn.addEventListener('click', () => {
+        const text = document.getElementById('source-text').value;
+        const lang = document.getElementById('source-lang').value;
+        
+        const langLocaleMap = {
+            'ko': 'ko-KR',
+            'en': 'en-US',
+            'ja': 'ja-JP',
+            'zh': 'zh-CN',
+            'es': 'es-ES',
+            'fr': 'fr-FR',
+            'de': 'de-DE'
+        };
+        
+        if (window.speechSynthesis) {
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = langLocaleMap[lang] || 'en-US';
+            
+            sourceTtsBtn.classList.add('btn-primary');
+            utterance.onend = () => {
+                sourceTtsBtn.classList.remove('btn-primary');
+            };
+            utterance.onerror = () => {
+                sourceTtsBtn.classList.remove('btn-primary');
+            };
+            
+            window.speechSynthesis.speak(utterance);
+        } else {
+            showToast('이 브라우저는 음성 합성(TTS)을 지원하지 않습니다.', 'danger');
+        }
+    });
+
+    // Clear All screen info (지우개)
+    document.getElementById('btn-clear-all').addEventListener('click', () => {
+        document.getElementById('source-text').value = '';
+        document.getElementById('current-char-count').innerText = '0';
+        document.getElementById('target-text').value = '';
+        
+        clearFileAttachment();
+        
+        document.getElementById('btn-source-copy').disabled = true;
+        document.getElementById('btn-source-tts').disabled = true;
+        document.getElementById('btn-copy').disabled = true;
+        document.getElementById('btn-tts').disabled = true;
+        
+        extractedWords = [];
+        document.getElementById('extracted-words-section').style.display = 'none';
+        document.getElementById('extracted-words-grid').innerHTML = '';
+        
+        showToast('🧹 모든 화면 정보가 초기화되었습니다.');
+    });
+
     // Modal forms submission
     document.getElementById('edit-word-form').addEventListener('submit', handleWordEditSubmit);
 
@@ -323,6 +392,9 @@ function handleAttachedFile(file) {
             document.getElementById('image-preview-container').style.display = 'none';
             document.getElementById('file-icon').innerText = '📄';
             showFileIndicator();
+
+            document.getElementById('btn-source-copy').removeAttribute('disabled');
+            document.getElementById('btn-source-tts').removeAttribute('disabled');
         };
         reader.readAsText(file, 'utf-8');
     }
@@ -519,6 +591,8 @@ async function executeTranslation() {
         // Enable buttons
         document.getElementById('btn-copy').removeAttribute('disabled');
         document.getElementById('btn-tts').removeAttribute('disabled');
+        document.getElementById('btn-source-copy').removeAttribute('disabled');
+        document.getElementById('btn-source-tts').removeAttribute('disabled');
 
         // 2. Save Extracted Words to Database (Global wordbook - tr_global_words)
         extractedWords = result.words || [];
@@ -1064,7 +1138,7 @@ function downloadWordbookAsExcel(words, filename) {
     let csvContent = '\uFEFF'; // UTF-8 BOM
     
     // Header row
-    csvContent += '언어\t단어/한자\t요미가나\t동사원형\t뜻(한국어)\t생성일\n';
+    csvContent += '언어\t원래 단어\t한자\t요미가나\t동사원형\t뜻(한국어)\t저장일\n';
     
     // Data rows
     words.forEach(w => {
