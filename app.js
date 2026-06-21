@@ -4,6 +4,19 @@ let currentUser = null;
 let currentFile = null; // { name, size, mime_type, base64Data }
 let extractedWords = []; // List of words extracted from current translation
 
+// Active TTS button tracker
+let activeSpeechButton = null;
+
+function stopSpeech() {
+    if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+    }
+    if (activeSpeechButton) {
+        activeSpeechButton.classList.remove('btn-primary');
+        activeSpeechButton = null;
+    }
+}
+
 // Initialize App
 document.addEventListener('DOMContentLoaded', async () => {
     await initSupabase();
@@ -116,6 +129,7 @@ function setupEventListeners() {
     const sourceText = document.getElementById('source-text');
     const charCount = document.getElementById('current-char-count');
     sourceText.addEventListener('input', () => {
+        stopSpeech();
         charCount.innerText = sourceText.value.length;
         const hasText = sourceText.value.trim().length > 0;
         document.getElementById('btn-source-copy').disabled = !hasText;
@@ -124,6 +138,7 @@ function setupEventListeners() {
 
     // Swap Languages
     document.getElementById('btn-swap-langs').addEventListener('click', () => {
+        stopSpeech();
         const sourceLangSelect = document.getElementById('source-lang');
         const targetLangSelect = document.getElementById('target-lang');
         
@@ -139,6 +154,10 @@ function setupEventListeners() {
             targetLangSelect.value = sourceVal;
         }
     });
+
+    // Language Selector Stops Speech
+    document.getElementById('source-lang').addEventListener('change', stopSpeech);
+    document.getElementById('target-lang').addEventListener('change', stopSpeech);
 
     // File Drag & Drop
     const dropZone = document.getElementById('drop-zone');
@@ -158,6 +177,7 @@ function setupEventListeners() {
     });
 
     dropZone.addEventListener('drop', (e) => {
+        stopSpeech();
         const dt = e.dataTransfer;
         const files = dt.files;
         if (files.length > 0) {
@@ -167,6 +187,7 @@ function setupEventListeners() {
 
     // File Upload via Button
     const fileUpload = document.getElementById('file-upload');
+    fileUpload.addEventListener('click', stopSpeech);
     fileUpload.addEventListener('change', (e) => {
         if (e.target.files.length > 0) {
             handleAttachedFile(e.target.files[0]);
@@ -176,11 +197,15 @@ function setupEventListeners() {
     // Remove Attached File
     document.getElementById('btn-remove-file').addEventListener('click', (e) => {
         e.stopPropagation();
+        stopSpeech();
         clearFileAttachment();
     });
 
     // Translate Button Action
-    document.getElementById('btn-translate').addEventListener('click', executeTranslation);
+    document.getElementById('btn-translate').addEventListener('click', () => {
+        stopSpeech();
+        executeTranslation();
+    });
 
     // Word Checkbox Selection Enabling "Add" Button
     document.getElementById('extracted-words-grid').addEventListener('change', (e) => {
@@ -222,6 +247,7 @@ function setupEventListeners() {
     // Copy Translation Result
     const copyBtn = document.getElementById('btn-copy');
     copyBtn.addEventListener('click', () => {
+        stopSpeech();
         const targetText = document.getElementById('target-text').value;
         navigator.clipboard.writeText(targetText).then(() => {
             showToast('📋 번역 결과가 클립보드에 복사되었습니다.');
@@ -248,19 +274,28 @@ function setupEventListeners() {
         };
         
         if (window.speechSynthesis) {
-            // Cancel current speaking if any
-            window.speechSynthesis.cancel();
+            if (activeSpeechButton === ttsBtn) {
+                stopSpeech();
+                return;
+            }
+            stopSpeech();
             
             const utterance = new SpeechSynthesisUtterance(targetText);
             utterance.lang = langLocaleMap[targetLang] || 'ko-KR';
             
-            // Highlight TTS button state during voice playback
+            activeSpeechButton = ttsBtn;
             ttsBtn.classList.add('btn-primary');
             utterance.onend = () => {
-                ttsBtn.classList.remove('btn-primary');
+                if (activeSpeechButton === ttsBtn) {
+                    ttsBtn.classList.remove('btn-primary');
+                    activeSpeechButton = null;
+                }
             };
             utterance.onerror = () => {
-                ttsBtn.classList.remove('btn-primary');
+                if (activeSpeechButton === ttsBtn) {
+                    ttsBtn.classList.remove('btn-primary');
+                    activeSpeechButton = null;
+                }
             };
             
             window.speechSynthesis.speak(utterance);
@@ -272,6 +307,7 @@ function setupEventListeners() {
     // Copy Input Text
     const sourceCopyBtn = document.getElementById('btn-source-copy');
     sourceCopyBtn.addEventListener('click', () => {
+        stopSpeech();
         const text = document.getElementById('source-text').value;
         navigator.clipboard.writeText(text).then(() => {
             showToast('📋 입력한 텍스트가 클립보드에 복사되었습니다.');
@@ -297,16 +333,28 @@ function setupEventListeners() {
         };
         
         if (window.speechSynthesis) {
-            window.speechSynthesis.cancel();
+            if (activeSpeechButton === sourceTtsBtn) {
+                stopSpeech();
+                return;
+            }
+            stopSpeech();
+            
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = langLocaleMap[lang] || 'en-US';
             
+            activeSpeechButton = sourceTtsBtn;
             sourceTtsBtn.classList.add('btn-primary');
             utterance.onend = () => {
-                sourceTtsBtn.classList.remove('btn-primary');
+                if (activeSpeechButton === sourceTtsBtn) {
+                    sourceTtsBtn.classList.remove('btn-primary');
+                    activeSpeechButton = null;
+                }
             };
             utterance.onerror = () => {
-                sourceTtsBtn.classList.remove('btn-primary');
+                if (activeSpeechButton === sourceTtsBtn) {
+                    sourceTtsBtn.classList.remove('btn-primary');
+                    activeSpeechButton = null;
+                }
             };
             
             window.speechSynthesis.speak(utterance);
@@ -317,6 +365,7 @@ function setupEventListeners() {
 
     // Clear All screen info (지우개)
     document.getElementById('btn-clear-all').addEventListener('click', () => {
+        stopSpeech();
         document.getElementById('source-text').value = '';
         document.getElementById('current-char-count').innerText = '0';
         document.getElementById('target-text').value = '';
@@ -1127,6 +1176,7 @@ function escapeHtml(string) {
         .replace(/'/g, '&#039;');
 }
 
+
 // 11. Excel Download Utility
 function downloadWordbookAsExcel(words, filename) {
     if (words.length === 0) {
@@ -1134,34 +1184,63 @@ function downloadWordbookAsExcel(words, filename) {
         return;
     }
 
-    // Create CSV content with BOM for proper Excel encoding
-    let csvContent = '\uFEFF'; // UTF-8 BOM
-    
-    // Header row
-    csvContent += '언어\t원래 단어\t한자\t요미가나\t동사원형\t뜻(한국어)\t저장일\n';
-    
-    // Data rows
-    words.forEach(w => {
-        const kanji = w.kanji ? w.kanji : '';
-        const furigana = w.furigana ? w.furigana : '';
-        const baseForm = w.base_form ? w.base_form : '';
-        const createdDate = w.created_at ? new Date(w.created_at).toLocaleDateString('ko-KR') : '';
-        
-        csvContent += `${w.language}\t${w.word}\t${kanji}\t${furigana}\t${baseForm}\t${w.translation}\t${createdDate}\n`;
+    // Map language codes/names to Korean
+    const langMap = {
+        'English': '영어',
+        'Japanese': '일본어',
+        'Chinese': '중국어',
+        'Spanish': '스페인어',
+        'French': '프랑스어',
+        'German': '독일어',
+        'ko': '한국어',
+        'en': '영어',
+        'ja': '일본어',
+        'zh': '중국어',
+        'es': '스페인어',
+        'fr': '프랑스어',
+        'de': '독일어'
+    };
+
+    // Format word objects to align with columns: 국가, 단어, 한자, 요미가나, 동사원형 뜻, 한국어, 등록날짜
+    const formattedData = words.map(w => {
+        const mappedLang = langMap[w.language] || w.language || '';
+        const createdDate = w.created_at ? new Date(w.created_at).toISOString().split('T')[0] : '';
+        return {
+            '국가': mappedLang,
+            '단어': w.word || '',
+            '한자': w.kanji || '',
+            '요미가나': w.furigana || '',
+            '동사원형 뜻': w.base_form || '',
+            '한국어': w.translation || '',
+            '등록날짜': createdDate
+        };
     });
 
-    // Create blob and download
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    
-    link.setAttribute('href', url);
-    link.setAttribute('download', filename.replace('.xlsx', '.csv'));
-    link.style.visibility = 'hidden';
-    
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    showToast(`📊 '${filename}'가 다운로드되었습니다.`);
+    try {
+        // Create SheetJS Worksheet
+        const worksheet = XLSX.utils.json_to_sheet(formattedData);
+
+        // Adjust column widths
+        worksheet['!cols'] = [
+            { wch: 12 }, // 국가
+            { wch: 20 }, // 단어
+            { wch: 15 }, // 한자
+            { wch: 15 }, // 요미가나
+            { wch: 18 }, // 동사원형 뜻
+            { wch: 25 }, // 한국어
+            { wch: 15 }  // 등록날짜
+        ];
+
+        // Create Workbook
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, '단어장');
+
+        // Write file and trigger download
+        XLSX.writeFile(workbook, filename);
+
+        showToast(`📊 '${filename}'가 다운로드되었습니다.`);
+    } catch (err) {
+        console.error('엑셀 생성 오류:', err);
+        showToast('엑셀 파일 생성에 실패했습니다.', 'danger');
+    }
 }

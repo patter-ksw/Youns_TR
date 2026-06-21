@@ -9,6 +9,8 @@
     <link rel="apple-touch-icon" href="favicon.svg">
     <!-- Supabase JS Client -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- SheetJS Library for Excel (.xlsx) Download -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -93,22 +95,21 @@
                     <div class="pane-footer">
                         <div class="char-count"><span id="current-char-count">0</span> / 5000</div>
                         <div class="source-actions">
-                            <button id="btn-source-tts" class="btn" title="입력 음성 듣기" disabled>
-                                <span>🔊</span> 듣기
+                            <button id="btn-source-tts" class="btn btn-icon" title="입력 음성 듣기" disabled>
+                                <span>🔊</span>
                             </button>
-                            <button id="btn-source-copy" class="btn" title="입력 복사" disabled>
-                                <span>📋</span> 복사
+                            <button id="btn-source-copy" class="btn btn-icon" title="입력 복사" disabled>
+                                <span>📋</span>
                             </button>
-                            <button id="btn-clear-all" class="btn" title="전체 초기화">
-                                <span>🧹</span> 지우개
+                            <button id="btn-clear-all" class="btn btn-icon" title="지우개 (전체 초기화)">
+                                <span>🧹</span>
                             </button>
-                            <label for="file-upload" class="btn btn-file">
-                                <span>📎</span> 파일 첨부
+                            <label for="file-upload" class="btn btn-icon btn-file" title="파일 첨부">
+                                <span>📎</span>
                                 <input type="file" id="file-upload" accept=".txt,image/*" style="display: none;">
                             </label>
-                            <button id="btn-translate" class="btn btn-primary translate-btn">
-                                <span>번역하기</span>
-                                <span class="arrow-icon">➔</span>
+                            <button id="btn-translate" class="btn btn-primary btn-icon translate-btn" title="번역하기">
+                                <span>➔</span>
                             </button>
                         </div>
                     </div>
@@ -140,11 +141,11 @@
 
                     <div class="pane-footer">
                         <div class="target-actions">
-                            <button id="btn-tts" class="btn" title="음성 듣기" disabled>
-                                <span>🔊</span> 듣기
+                            <button id="btn-tts" class="btn btn-icon" title="번역 음성 듣기" disabled>
+                                <span>🔊</span>
                             </button>
-                            <button id="btn-copy" class="btn" title="번역 복사" disabled>
-                                <span>📋</span> 복사
+                            <button id="btn-copy" class="btn btn-icon" title="번역 복사" disabled>
+                                <span>📋</span>
                             </button>
                         </div>
                     </div>

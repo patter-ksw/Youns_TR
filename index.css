@@ -161,6 +161,23 @@ header h1 {
     border-color: rgba(139, 92, 246, 0.1) !important;
 }
 
+.btn-icon {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+.btn-icon span {
+    margin: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
 .btn-primary {
     background: var(--accent-purple);
     border-color: var(--accent-purple);
