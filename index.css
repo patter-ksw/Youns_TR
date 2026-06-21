@@ -96,6 +96,9 @@ header h1 {
 }
 
 @media (max-width: 768px) {
+    body {
+        padding: 10px 12px;
+    }
     header {
         flex-direction: column;
         justify-content: center;
@@ -105,6 +108,12 @@ header h1 {
     }
     .auth-panel {
         position: static;
+    }
+    .auth-panel, .user-info-container {
+        flex-wrap: wrap;
+        justify-content: center;
+        width: 100%;
+        gap: 8px;
     }
 }
 
@@ -225,6 +234,51 @@ header h1 {
 @media (max-width: 768px) {
     .translator-grid {
         grid-template-columns: 1fr;
+    }
+    
+    .pane-footer {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+    
+    .char-count {
+        text-align: right;
+    }
+    
+    .source-actions, .target-actions {
+        width: 100%;
+    }
+    
+    /* Hide secondary button text labels on mobile */
+    .source-actions .btn .btn-text, 
+    .target-actions .btn .btn-text {
+        display: none;
+    }
+    
+    /* Keep translate button text visible */
+    .source-actions .translate-btn .btn-text {
+        display: inline !important;
+    }
+    
+    /* Style secondary buttons as compact icon-like */
+    .source-actions .btn, 
+    .target-actions .btn {
+        padding: 0;
+        width: 38px;
+        height: 38px;
+        justify-content: center;
+        border-radius: 8px;
+        gap: 0;
+    }
+    
+    /* Make translate button grow to fill space */
+    .source-actions .translate-btn {
+        width: auto;
+        height: 38px;
+        flex-grow: 1;
+        padding: 0 16px;
+        gap: 6px;
     }
 }
 
@@ -762,7 +816,7 @@ header h1 {
 
 .wordbook-list-container {
     flex-grow: 1;
-    overflow-y: auto;
+    overflow: auto;
     border: 1px solid rgba(139, 92, 246, 0.1);
     border-radius: 12px;
     max-height: 450px;
