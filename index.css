@@ -55,20 +55,19 @@ body {
 
 /* Header */
 header {
-    position: relative;
     display: flex;
-    justify-content: center;
+    justify-content: space-between;
     align-items: center;
     margin-bottom: 15px;
     border-bottom: 1px solid rgba(139, 92, 246, 0.08);
-    padding-bottom: 10px;
+    padding-bottom: 15px;
     min-height: 70px;
+    gap: 15px;
 }
 
 .header-text {
     display: flex;
     align-items: center;
-    justify-content: center;
     gap: 12px;
 }
 
@@ -88,26 +87,26 @@ header h1 {
 
 /* Auth & User Panel */
 .auth-panel {
-    position: absolute;
-    right: 0;
     display: flex;
     align-items: center;
     gap: 10px;
 }
 
-@media (max-width: 768px) {
-    body {
-        padding: 10px 12px;
-    }
+@media (max-width: 900px) {
     header {
         flex-direction: column;
         justify-content: center;
-        gap: 10px;
+        align-items: center;
+        gap: 15px;
         min-height: auto;
         padding-bottom: 15px;
     }
+    .header-text {
+        justify-content: center;
+    }
     .auth-panel {
-        position: static;
+        justify-content: center;
+        width: 100%;
     }
     .auth-panel, .user-info-container {
         flex-wrap: wrap;
@@ -117,9 +116,16 @@ header h1 {
     }
 }
 
+@media (max-width: 768px) {
+    body {
+        padding: 10px 12px;
+    }
+}
+
 .user-info-container {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 10px;
     background: rgba(255, 255, 255, 0.5);
     padding: 6px 12px;
