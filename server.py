@@ -152,9 +152,7 @@ class TranslationServerHandler(http.server.SimpleHTTPRequestHandler):
                     f"- ✓ Non-Japanese words have empty strings for kanji/furigana/base_form\n"
                 )
                 
-                # Construct Gemini API Request
-                gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={gemini_key}"
-                
+                # Construct Gemini API Request payload
                 parts = [{"text": prompt}]
                 if image_data:
                     parts.append({
@@ -198,54 +196,79 @@ class TranslationServerHandler(http.server.SimpleHTTPRequestHandler):
                     }
                 }
                 
-                # Make HTTP call to Gemini API
-                req = urllib.request.Request(
-                    gemini_url,
-                    data=json.dumps(payload).encode('utf-8'),
-                    headers={'Content-Type': 'application/json'},
-                    method='POST'
-                )
+                # Try multiple models sequentially in case of 429 quota limits or timeouts
+                models_to_try = [
+                    'gemini-flash-latest',
+                    'gemini-2.5-flash-lite',
+                    'gemini-3.1-flash-lite',
+                    'gemini-2.0-flash-lite',
+                    'gemini-flash-lite-latest'
+                ]
                 
-                try:
-                    with urllib.request.urlopen(req) as res:
-                        res_body = res.read().decode('utf-8')
-                        gemini_res = json.loads(res_body)
-                        
-                        # Extract the JSON text output from Gemini
-                        candidates = gemini_res.get('candidates', [])
-                        if not candidates:
-                            self.send_error_json(502, f"Gemini API 응답 오류: candidates가 없습니다. {res_body}")
-                            return
-                        
-                        candidate = candidates[0]
-                        parts = candidate.get('content', {}).get('parts', [])
-                        if not parts:
-                            self.send_error_json(502, "Gemini API 응답 오류: content parts가 없습니다.")
-                            return
-                        
-                        response_text = parts[0].get('text', '')
-                        
-                        # Debug: Write Gemini's response to file
-                        with open('gemini_debug.log', 'a', encoding='utf-8') as f:
-                            f.write(f"\n=== Gemini Response ===\n{response_text}\n{'='*50}\n")
-                        
-                        # Return Gemini's JSON response directly to client
+                response_text = ''
+                last_error = None
+                successful_model = None
+                
+                for idx, model_name in enumerate(models_to_try):
+                    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={gemini_key}"
+                    
+                    req = urllib.request.Request(
+                        gemini_url,
+                        data=json.dumps(payload).encode('utf-8'),
+                        headers={'Content-Type': 'application/json'},
+                        method='POST'
+                    )
+                    
+                    try:
+                        print(f"Trying Gemini model ({idx + 1}/{len(models_to_try)}): {model_name}...")
+                        # 12-second timeout per attempt to avoid hanging
+                        with urllib.request.urlopen(req, timeout=12) as res:
+                            res_body = res.read().decode('utf-8')
+                            gemini_res = json.loads(res_body)
+                            
+                            # Extract JSON text output
+                            candidates = gemini_res.get('candidates', [])
+                            if not candidates:
+                                raise ValueError(f"candidates가 없습니다. 응답: {res_body}")
+                            
+                            candidate = candidates[0]
+                            parts = candidate.get('content', {}).get('parts', [])
+                            if not parts:
+                                raise ValueError("content parts가 없습니다.")
+                            
+                            response_text = parts[0].get('text', '')
+                            successful_model = model_name
+                            print(f"Successfully received response from model: {model_name}")
+                            break # Success! Break the loop
+                    except urllib.error.HTTPError as e:
                         try:
-                            self.send_response(200)
-                            self.send_header('Content-Type', 'application/json; charset=utf-8')
-                            self.send_header('Access-Control-Allow-Origin', '*')
-                            self.end_headers()
-                            self.wfile.write(response_text.encode('utf-8'))
-                        except ConnectionError:
-                            pass
-                        
-                except urllib.error.HTTPError as e:
-                    error_msg = e.read().decode('utf-8')
-                    print(f"Gemini API HTTPError: {error_msg}")
-                    self.send_error_json(502, f"Gemini API 오류 ({e.code}): {error_msg}")
-                except Exception as e:
-                    print(f"Gemini API Call Exception: {str(e)}")
-                    self.send_error_json(500, f"Gemini API 호출 중 서버 오류 발생: {str(e)}")
+                            error_body = e.read().decode('utf-8')
+                        except Exception:
+                            error_body = "Could not read error body"
+                        last_error = f"HTTP Error {e.code} for model {model_name}: {error_body}"
+                        print(f"Warning: {last_error}")
+                    except Exception as e:
+                        last_error = f"Exception for model {model_name}: {str(e)}"
+                        print(f"Warning: {last_error}")
+                
+                if not response_text:
+                    print(f"All Gemini models failed. Last error: {last_error}")
+                    self.send_error_json(502, f"모든 번역 모델 호출에 실패했습니다. 마지막 오류: {last_error}")
+                    return
+
+                # Debug: Write Gemini's response to file
+                with open('gemini_debug.log', 'a', encoding='utf-8') as f:
+                    f.write(f"\n=== Gemini Response ({successful_model}) ===\n{response_text}\n{'='*50}\n")
+                
+                # Return Gemini's JSON response directly to client
+                try:
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'application/json; charset=utf-8')
+                    self.send_header('Access-Control-Allow-Origin', '*')
+                    self.end_headers()
+                    self.wfile.write(response_text.encode('utf-8'))
+                except ConnectionError:
+                    pass
                     
             except Exception as e:
                 self.send_error_json(400, f"요청 파싱 실패: {str(e)}")

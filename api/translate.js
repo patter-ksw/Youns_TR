@@ -181,38 +181,72 @@ export default async function handler(req, res) {
         },
     };
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${geminiKey}`;
+    const modelsToTry = [
+        'gemini-flash-latest',
+        'gemini-2.5-flash-lite',
+        'gemini-3.1-flash-lite',
+        'gemini-2.0-flash-lite',
+        'gemini-flash-lite-latest'
+    ];
 
+    let responseText = '';
+    let lastError = null;
+
+    for (let i = 0; i < modelsToTry.length; i++) {
+        const modelName = modelsToTry[i];
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey}`;
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 12000); // 12-second timeout per attempt
+
+        try {
+            console.log(`Trying Gemini model (${i + 1}/${modelsToTry.length}): ${modelName}...`);
+            const geminiResponse = await fetch(geminiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+
+            if (!geminiResponse.ok) {
+                const errText = await geminiResponse.text();
+                throw new Error(`HTTP ${geminiResponse.status}: ${errText}`);
+            }
+
+            const geminiData = await geminiResponse.json();
+            const candidates = geminiData.candidates || [];
+            if (!candidates.length) {
+                throw new Error('candidates가 없습니다.');
+            }
+
+            const responseParts = candidates[0]?.content?.parts || [];
+            if (!responseParts.length) {
+                throw new Error('content parts가 없습니다.');
+            }
+
+            responseText = responseParts[0]?.text || '';
+            console.log(`Successfully received response from model: ${modelName}`);
+            break; // Success! Break the loop
+        } catch (err) {
+            clearTimeout(timeoutId);
+            lastError = `Model ${modelName} failed: ${err.message || err}`;
+            console.warn(lastError);
+        }
+    }
+
+    if (!responseText) {
+        console.error('All Gemini models failed:', lastError);
+        return res.status(502).json({ error: `모든 번역 모델 호출에 실패했습니다. 마지막 오류: ${lastError}` });
+    }
+
+    let result;
     try {
-        // Node 18+ on Vercel supports native fetch
-        const geminiResponse = await fetch(geminiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-        });
-
-        if (!geminiResponse.ok) {
-            const errText = await geminiResponse.text();
-            console.error('Gemini API Error:', errText);
-            return res.status(502).json({ error: `Gemini API 오류 (${geminiResponse.status}): ${errText}` });
-        }
-
-        const geminiData = await geminiResponse.json();
-        const candidates = geminiData.candidates || [];
-
-        if (!candidates.length) {
-            return res.status(502).json({ error: 'Gemini API 응답 오류: candidates가 없습니다.' });
-        }
-
-        const responseParts = candidates[0]?.content?.parts || [];
-        if (!responseParts.length) {
-            return res.status(502).json({ error: 'Gemini API 응답 오류: content parts가 없습니다.' });
-        }
-
-        const responseText = responseParts[0]?.text || '';
-
-        // Parse and return Gemini's JSON response
-        const result = JSON.parse(responseText);
+        result = JSON.parse(responseText);
+    } catch (err) {
+        console.error('Failed to parse Gemini response text as JSON:', err, responseText);
+        return res.status(502).json({ error: '번역 데이터 파싱 실패', details: err.message });
+    }
 
         // Deterministic post-processing for Japanese words
         if (result.words && Array.isArray(result.words)) {
