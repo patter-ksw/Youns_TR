@@ -131,7 +131,10 @@ class TranslationServerHandler(http.server.SimpleHTTPRequestHandler):
                     'gemini-2.5-flash-lite',
                     'gemini-3.1-flash-lite',
                     'gemini-2.0-flash-lite',
-                    'gemini-flash-lite-latest'
+                    'gemini-flash-lite-latest',
+                    'gemini-2.5-flash',
+                    'gemini-2.0-flash',
+                    'gemini-3.5-flash'
                 ]
                 
                 response_text = ''
@@ -275,17 +278,19 @@ class TranslationServerHandler(http.server.SimpleHTTPRequestHandler):
                     f"Japanese verb conjugation:\n"
                     f'  {{"word": "食べている", "translation": "먹고 있습니다", "language": "Japanese", "kanji": "食べている", "furigana": "たべている", "base_form": "食べる"}}\n'
                     f"Japanese noun:\n"
-                    f'  {{"word": "毎日", "translation": "매일", "language": "Japanese", "kanji": "毎日", "furigana": "まいに치", "base_form": ""}}\n'
+                    f'  {{"word": "毎日", "translation": "매일", "language": "Japanese", "kanji": "毎日", "furigana": "まいにち", "base_form": ""}}\n'
                     f"Japanese hiragana word:\n"
                     f'  {{"word": "ゆっくり", "translation": "천천히", "language": "Japanese", "kanji": "", "furigana": "", "base_form": ""}}\n'
                     f"English:\n"
                     f'  {{"word": "book", "translation": "책", "language": "English", "kanji": "", "furigana": "", "base_form": ""}}\n'
                     f"\n### EXTRACTION RULES:\n"
-                    f"- Extract as many vocabulary words/phrases as possible (up to 25-30 words, minimum 12 words if the text is long enough).\n"
+                    f"- Extract BOTH basic (everyday, common vocabulary) and advanced (academic, professional, technical vocabulary) words/phrases. Do not limit to only difficult or rare words.\n"
+                    f"- Include common verbs, nouns, adjectives, adverbs, and conjunctions that are helpful for language learners of all levels.\n"
+                    f"- Extract as many vocabulary words/phrases as possible (up to 25-30 words, minimum 15 words if the text is long enough. Even for short texts, include basic words to reach at least 10-15 words).\n"
                     f"- For Japanese, you MUST extract words written in Hiragana (e.g. adverbs, conjunctions) and Katakana (e.g. loanwords) as well as Kanji words. Do not limit to only words containing Kanji.\n"
                     f"- Include verbs, nouns, adjectives, adverbs, conjunctions, and katakana loanwords.\n"
                     f"- For verbs, adjectives, and inflected words in non-dictionary form, ALWAYS provide their base_form.\n"
-                    f"- Skip basic grammatical particles (은/는/이/가 in Korean, or は/가/を/에/に in Japanese) unless they are part of a compound phrase.\n"
+                    f"- Skip basic grammatical particles (은/는/이/가 in Korean, or は/가/을/에/に in Japanese) unless they are part of a compound phrase.\n"
                     f"\n### OUTPUT VALIDATION:\n"
                     f"Before returning, verify:\n"
                     f"- ✓ Every word object has exactly 6 fields\n"
@@ -330,7 +335,10 @@ class TranslationServerHandler(http.server.SimpleHTTPRequestHandler):
                     'gemini-2.5-flash-lite',
                     'gemini-3.1-flash-lite',
                     'gemini-2.0-flash-lite',
-                    'gemini-flash-lite-latest'
+                    'gemini-flash-lite-latest',
+                    'gemini-2.5-flash',
+                    'gemini-2.0-flash',
+                    'gemini-3.5-flash'
                 ]
                 
                 response_text = ''

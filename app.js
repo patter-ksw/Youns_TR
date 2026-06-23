@@ -601,6 +601,11 @@ async function executeTranslation() {
         return;
     }
 
+    // Clear old words immediately when starting a new translation
+    extractedWords = [];
+    const section = document.getElementById('extracted-words-section');
+    if (section) section.style.display = 'none';
+
     showLoading(true, currentFile && currentFile.mime_type.startsWith('image/') ? '이미지 문장 인식 및 번역 중...' : '번역 중...');
 
     try {
@@ -673,12 +678,14 @@ async function executeTranslation() {
         // Save translation variables globally for retry support
         window.lastOriginalText = ocrText;
         window.lastTranslatedText = result.translated_text;
+        const detectedSourceLang = result.detected_source_language || sourceLang;
+        window.lastDetectedSourceLang = detectedSourceLang;
 
         try {
             const extractPayload = {
                 original_text: ocrText,
                 translated_text: result.translated_text,
-                source_lang: sourceLang,
+                source_lang: detectedSourceLang,
                 target_lang: targetLang
             };
 
@@ -827,13 +834,13 @@ async function retryWordExtraction() {
     `;
 
     try {
-        const sourceLang = document.getElementById('source-lang').value;
         const targetLang = document.getElementById('target-lang').value;
+        const detectedSourceLang = window.lastDetectedSourceLang || document.getElementById('source-lang').value;
 
         const extractPayload = {
             original_text: window.lastOriginalText,
             translated_text: window.lastTranslatedText,
-            source_lang: sourceLang,
+            source_lang: detectedSourceLang,
             target_lang: targetLang
         };
 
