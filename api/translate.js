@@ -181,9 +181,10 @@ export default async function handler(req, res) {
         },
     };
 
-    const isHeavy = !!image || (text && text.length > 500);
+    try {
+        const isHeavy = !!image || (text && text.length > 500);
 
-    const modelsToTry = [
+        const modelsToTry = [
         'gemini-flash-latest',
         'gemini-2.5-flash-lite',
         'gemini-3.1-flash-lite',
