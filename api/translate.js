@@ -181,6 +181,8 @@ export default async function handler(req, res) {
         },
     };
 
+    const isHeavy = !!image || (text && text.length > 500);
+
     const modelsToTry = [
         'gemini-flash-latest',
         'gemini-2.5-flash-lite',
@@ -196,11 +198,19 @@ export default async function handler(req, res) {
         const modelName = modelsToTry[i];
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey}`;
 
+        // Determine timeout dynamically:
+        // Heavy payloads (OCR or long text) get 9.0s on the first attempt so Gemini has enough time to finish.
+        // Light payloads (short text) get sliced into 4.5s for 1st attempt, 4.5s for 2nd.
+        let timeoutVal = 4500;
+        if (isHeavy) {
+            timeoutVal = (i === 0) ? 9000 : 500;
+        }
+
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 12000); // 12-second timeout per attempt
+        const timeoutId = setTimeout(() => controller.abort(), timeoutVal);
 
         try {
-            console.log(`Trying Gemini model (${i + 1}/${modelsToTry.length}): ${modelName}...`);
+            console.log(`Trying Gemini model (${i + 1}/${modelsToTry.length}): ${modelName} (timeout=${timeoutVal}ms)...`);
             const geminiResponse = await fetch(geminiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

@@ -196,6 +196,10 @@ class TranslationServerHandler(http.server.SimpleHTTPRequestHandler):
                     }
                 }
                 
+                # Determine timeout dynamically based on request complexity
+                is_heavy = bool(image_data) or (text and len(text) > 500)
+                timeout_val = 25 if is_heavy else 10
+
                 # Try multiple models sequentially in case of 429 quota limits or timeouts
                 models_to_try = [
                     'gemini-flash-latest',
@@ -220,9 +224,8 @@ class TranslationServerHandler(http.server.SimpleHTTPRequestHandler):
                     )
                     
                     try:
-                        print(f"Trying Gemini model ({idx + 1}/{len(models_to_try)}): {model_name}...")
-                        # 12-second timeout per attempt to avoid hanging
-                        with urllib.request.urlopen(req, timeout=12) as res:
+                        print(f"Trying Gemini model ({idx + 1}/{len(models_to_try)}): {model_name} (timeout={timeout_val}s)...")
+                        with urllib.request.urlopen(req, timeout=timeout_val) as res:
                             res_body = res.read().decode('utf-8')
                             gemini_res = json.loads(res_body)
                             
