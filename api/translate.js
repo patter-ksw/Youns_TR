@@ -207,17 +207,21 @@ export default async function handler(req, res) {
             timeoutVal = (i === 0) ? 9000 : 500;
         }
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeoutVal);
+        let timeoutId;
+        const timeoutPromise = new Promise((_, reject) => {
+            timeoutId = setTimeout(() => reject(new Error('timeout')), timeoutVal);
+        });
 
         try {
             console.log(`Trying Gemini model (${i + 1}/${modelsToTry.length}): ${modelName} (timeout=${timeoutVal}ms)...`);
-            const geminiResponse = await fetch(geminiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-                signal: controller.signal
-            });
+            const geminiResponse = await Promise.race([
+                fetch(geminiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                }),
+                timeoutPromise
+            ]);
             clearTimeout(timeoutId);
 
             if (!geminiResponse.ok) {
