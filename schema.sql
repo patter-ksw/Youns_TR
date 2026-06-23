@@ -24,6 +24,8 @@ CREATE TABLE IF NOT EXISTS tr_global_words (
     kanji TEXT,              -- 일본어 한자 (예: 食べる)
     furigana TEXT,           -- 일본어 요미가나 (예: たべる)
     base_form TEXT,          -- 동사 원형 (예: 食べる)
+    added_by_username TEXT,  -- 등록자 ID
+    added_by_name TEXT,      -- 등록자 닉네임
     created_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT tr_global_words_unique UNIQUE (language, word)
 );
@@ -53,3 +55,7 @@ ALTER TABLE tr_user_words DISABLE ROW LEVEL SECURITY;
 UPDATE services 
 SET url = 'http://localhost:8001' 
 WHERE title = '번역기(단어장 만들기)';
+
+-- 7. 기존 테이블 마이그레이션 DDL (이미 테이블이 생성된 경우 Supabase SQL Editor에서 아래 쿼리 실행)
+-- ALTER TABLE tr_global_words ADD COLUMN IF NOT EXISTS added_by_username TEXT;
+-- ALTER TABLE tr_global_words ADD COLUMN IF NOT EXISTS added_by_name TEXT;

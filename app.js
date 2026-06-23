@@ -704,24 +704,7 @@ async function executeTranslation() {
             extractedWords = extractResult.words || [];
 
             if (extractedWords.length > 0 && supabaseClient) {
-                // Map words to database structure: language, word, translation, kanji, furigana, base_form
-                const dbWords = extractedWords.map(w => ({
-                    language: w.language,
-                    word: w.word.trim(),
-                    translation: w.translation.trim(),
-                    kanji: w.kanji || null,           // Japanese kanji
-                    furigana: w.furigana || null,     // Japanese furigana (reading)
-                    base_form: w.base_form || null    // Japanese verb base form
-                }));
-
-                // Insert into tr_global_words and ignore duplicate key conflicts (language, word)
-                const { error: dbError } = await supabaseClient
-                    .from('tr_global_words')
-                    .insert(dbWords, { onConflict: 'language,word', ignoreDuplicates: true });
-
-                if (dbError) {
-                    console.error('글로벌 단어 저장 오류:', dbError);
-                }
+                await saveExtractedWordsToGlobal(extractedWords);
             }
 
             // Render the final extracted list
@@ -742,6 +725,54 @@ async function executeTranslation() {
         console.error('번역 처리 오류:', err);
         showErrorModal(err.message);
         showLoading(false);
+    }
+}
+
+async function saveExtractedWordsToGlobal(words) {
+    if (!supabaseClient || words.length === 0) return;
+
+    let dbWords = words.map(w => ({
+        language: w.language,
+        word: w.word.trim(),
+        translation: w.translation.trim(),
+        kanji: w.kanji || null,
+        furigana: w.furigana || null,
+        base_form: w.base_form || null
+    }));
+
+    if (currentUser) {
+        dbWords = dbWords.map(w => ({
+            ...w,
+            added_by_username: currentUser.username,
+            added_by_name: currentUser.name
+        }));
+    }
+
+    const { error: dbError } = await supabaseClient
+        .from('tr_global_words')
+        .insert(dbWords, { onConflict: 'language,word', ignoreDuplicates: true });
+
+    if (dbError) {
+        // Fallback in case columns do not exist in the database yet
+        if (dbError.code === 'PGRST204' && currentUser) {
+            console.warn('User tracking columns do not exist in tr_global_words. Retrying insertion without them.');
+            const fallbackDbWords = words.map(w => ({
+                language: w.language,
+                word: w.word.trim(),
+                translation: w.translation.trim(),
+                kanji: w.kanji || null,
+                furigana: w.furigana || null,
+                base_form: w.base_form || null
+            }));
+            const { error: retryError } = await supabaseClient
+                .from('tr_global_words')
+                .insert(fallbackDbWords, { onConflict: 'language,word', ignoreDuplicates: true });
+            if (retryError) {
+                console.error('글로벌 단어 저장 오류 (재시도):', retryError);
+            }
+        } else {
+            console.error('글로벌 단어 저장 오류:', dbError);
+        }
     }
 }
 
@@ -860,22 +891,7 @@ async function retryWordExtraction() {
         extractedWords = extractResult.words || [];
 
         if (extractedWords.length > 0 && supabaseClient) {
-            const dbWords = extractedWords.map(w => ({
-                language: w.language,
-                word: w.word.trim(),
-                translation: w.translation.trim(),
-                kanji: w.kanji || null,
-                furigana: w.furigana || null,
-                base_form: w.base_form || null
-            }));
-
-            const { error: dbError } = await supabaseClient
-                .from('tr_global_words')
-                .insert(dbWords, { onConflict: 'language,word', ignoreDuplicates: true });
-
-            if (dbError) {
-                console.error('글로벌 단어 저장 오류:', dbError);
-            }
+            await saveExtractedWordsToGlobal(extractedWords);
         }
 
         renderExtractedWordsList();
@@ -1047,7 +1063,7 @@ async function loadGlobalWordbook() {
     const tbody = document.getElementById('global-wordbook-tbody');
     const emptyState = document.getElementById('global-wordbook-empty');
 
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">단어를 가져오는 중...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">단어를 가져오는 중...</td></tr>';
     emptyState.style.display = 'none';
 
     try {
@@ -1119,10 +1135,19 @@ function renderGlobalWordbookTable(words) {
             `;
         }
 
+        // Creator display
+        let creatorDisplay = '자동 추출';
+        if (w.added_by_name) {
+            creatorDisplay = `${escapeHtml(w.added_by_name)} (${escapeHtml(w.added_by_username || '')})`;
+        } else if (w.added_by_username) {
+            creatorDisplay = escapeHtml(w.added_by_username);
+        }
+
         tr.innerHTML = `
             <td><span class="word-lang-badge">${escapeHtml(w.language)}</span></td>
             <td class="col-word">${wordContent}${baseFormContent}</td>
             <td class="col-translation">${escapeHtml(w.translation)}</td>
+            <td class="col-creator" style="font-size: 0.9em; color: var(--text-secondary);">${creatorDisplay}</td>
             <td>${actionButtons}</td>
         `;
         tbody.appendChild(tr);
