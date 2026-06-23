@@ -1026,6 +1026,7 @@ function renderMyWordbookTable(words) {
             <td class="col-translation">${escapeHtml(w.translation)}</td>
             <td>
                 <div class="wordbook-action-btns">
+                    <button class="btn btn-tts-word" onclick="playWordTts('${escapeHtml(w.word)}', '${escapeHtml(w.language)}')">🔊</button>
                     <button class="btn btn-edit-word" onclick="showWordEditModal(${w.id}, '${escapeHtml(w.language)}', '${escapeHtml(w.word)}', '${escapeHtml(w.translation)}', 'my')">✏️</button>
                     <button class="btn btn-danger" onclick="deleteUserWord(${w.id})">🗑️</button>
                 </div>
@@ -1120,13 +1121,17 @@ function renderGlobalWordbookTable(words) {
         if (isAdmin) {
             actionButtons = `
                 <div class="wordbook-action-btns">
+                    <button class="btn btn-tts-word" onclick="playWordTts('${escapeHtml(w.word)}', '${escapeHtml(w.language)}')">🔊</button>
                     <button class="btn btn-edit-word" onclick="showWordEditModal(${w.id}, '${escapeHtml(w.language)}', '${escapeHtml(w.word)}', '${escapeHtml(w.translation)}', 'global')">✏️</button>
                     <button class="btn btn-danger" onclick="deleteGlobalWord(${w.id})">🗑️</button>
                 </div>
             `;
         } else {
             actionButtons = `
-                <button class="btn btn-primary" onclick="addSingleGlobalWordToMyWordbook(${w.id})">내 단어장에 추가</button>
+                <div class="wordbook-action-btns" style="gap: 5px;">
+                    <button class="btn btn-tts-word" onclick="playWordTts('${escapeHtml(w.word)}', '${escapeHtml(w.language)}')">🔊</button>
+                    <button class="btn btn-primary" onclick="addSingleGlobalWordToMyWordbook(${w.id})">내 단어장에 추가</button>
+                </div>
             `;
         }
 
@@ -1302,6 +1307,41 @@ window.openModal = function(modalId) {
 
 window.closeModal = function(modalId) {
     document.getElementById(modalId).classList.remove('active');
+};
+
+window.playWordTts = function(text, language) {
+    if (!window.speechSynthesis) {
+        showToast('이 브라우저는 음성 합성(TTS)을 지원하지 않습니다.', 'danger');
+        return;
+    }
+    
+    // Stop any active speech first
+    window.speechSynthesis.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    
+    // Normalize language to locale
+    const normalizedLang = (language || '').toLowerCase();
+    
+    let locale = 'en-US'; // default
+    if (normalizedLang.includes('ko') || normalizedLang.includes('korean')) {
+        locale = 'ko-KR';
+    } else if (normalizedLang.includes('ja') || normalizedLang.includes('japanese')) {
+        locale = 'ja-JP';
+    } else if (normalizedLang.includes('zh') || normalizedLang.includes('chinese')) {
+        locale = 'zh-CN';
+    } else if (normalizedLang.includes('es') || normalizedLang.includes('spanish')) {
+        locale = 'es-ES';
+    } else if (normalizedLang.includes('fr') || normalizedLang.includes('french')) {
+        locale = 'fr-FR';
+    } else if (normalizedLang.includes('de') || normalizedLang.includes('german')) {
+        locale = 'de-DE';
+    } else if (normalizedLang.includes('en') || normalizedLang.includes('english')) {
+        locale = 'en-US';
+    }
+    
+    utterance.lang = locale;
+    window.speechSynthesis.speak(utterance);
 };
 
 window.showErrorModal = function(errorMsg) {
