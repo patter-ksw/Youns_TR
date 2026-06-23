@@ -63,6 +63,7 @@ class TranslationServerHandler(http.server.SimpleHTTPRequestHandler):
                 
                 env_config = load_env_file(HERE / '.env.local')
                 gemini_key = env_config.get('GEMINI_API_KEY') or os.getenv('GEMINI_API_KEY', '')
+                openai_key = env_config.get('OPENAI_API_KEY') or os.getenv('OPENAI_API_KEY', '')
                 
                 if not gemini_key:
                     self.send_error_json(400, 'GEMINI_API_KEY가 설정되지 않았습니다. .env.local 파일을 확인하세요.')
@@ -184,8 +185,64 @@ class TranslationServerHandler(http.server.SimpleHTTPRequestHandler):
                         last_error = f"Exception for model {model_name}: {str(e)}"
                         print(f"Warning: {last_error}")
                 
+                # Fallback to OpenAI if all Gemini models failed and OPENAI_API_KEY is available
+                if not response_text and openai_key:
+                    print("Falling back to OpenAI for translation...")
+                    try:
+                        messages = []
+                        user_content = [{"type": "text", "text": prompt}]
+                        if image_data:
+                            user_content.append({
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:{image_data.get('mime_type')};base64,{image_data.get('data')}"
+                                }
+                            })
+                        messages.append({"role": "user", "content": user_content})
+
+                        openai_payload = {
+                            "model": "gpt-4o-mini",
+                            "messages": messages,
+                            "response_format": {
+                                "type": "json_schema",
+                                "json_schema": {
+                                    "name": "translation_response",
+                                    "strict": True,
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "translated_text": { "type": "string" },
+                                            "original_text": { "type": "string" },
+                                            "detected_source_language": { "type": "string" }
+                                        },
+                                        "required": ["translated_text", "original_text", "detected_source_language"],
+                                        "additionalProperties": False
+                                    }
+                                }
+                            }
+                        }
+
+                        req_openai = urllib.request.Request(
+                            "https://api.openai.com/v1/chat/completions",
+                            data=json.dumps(openai_payload).encode('utf-8'),
+                            headers={
+                                'Content-Type': 'application/json',
+                                'Authorization': f'Bearer {openai_key}'
+                            },
+                            method='POST'
+                        )
+
+                        with urllib.request.urlopen(req_openai, timeout=timeout_val) as res_openai:
+                            res_body_openai = res_openai.read().decode('utf-8')
+                            openai_res = json.loads(res_body_openai)
+                            response_text = openai_res.get('choices', [{}])[0].get('message', {}).get('content', '')
+                            print("Successfully received translation response from OpenAI (gpt-4o-mini)")
+                    except Exception as e:
+                        last_error = f"OpenAI fallback failed: {str(e)}"
+                        print(f"Warning: {last_error}")
+                
                 if not response_text:
-                    print(f"All Gemini models failed. Last error: {last_error}")
+                    print(f"All translation models failed. Last error: {last_error}")
                     self.send_error_json(502, f"모든 번역 모델 호출에 실패했습니다. 마지막 오류: {last_error}")
                     return
 
@@ -215,6 +272,7 @@ class TranslationServerHandler(http.server.SimpleHTTPRequestHandler):
                 
                 env_config = load_env_file(HERE / '.env.local')
                 gemini_key = env_config.get('GEMINI_API_KEY') or os.getenv('GEMINI_API_KEY', '')
+                openai_key = env_config.get('OPENAI_API_KEY') or os.getenv('OPENAI_API_KEY', '')
                 
                 if not gemini_key:
                     self.send_error_json(400, 'GEMINI_API_KEY가 설정되지 않았습니다. .env.local 파일을 확인하세요.')
@@ -284,13 +342,12 @@ class TranslationServerHandler(http.server.SimpleHTTPRequestHandler):
                     f"English:\n"
                     f'  {{"word": "book", "translation": "책", "language": "English", "kanji": "", "furigana": "", "base_form": ""}}\n'
                     f"\n### EXTRACTION RULES:\n"
-                    f"- Extract BOTH basic (everyday, common vocabulary) and advanced (academic, professional, technical vocabulary) words/phrases. Do not limit to only difficult or rare words.\n"
+                    f"- Extract BOTH basic (everyday, common vocabulary) and advanced (academic, professional, etc.) words/phrases. Do not limit to only difficult or rare words.\n"
                     f"- Include common verbs, nouns, adjectives, adverbs, and conjunctions that are helpful for language learners of all levels.\n"
                     f"- Extract as many vocabulary words/phrases as possible (up to 25-30 words, minimum 15 words if the text is long enough. Even for short texts, include basic words to reach at least 10-15 words).\n"
-                    f"- For Japanese, you MUST extract words written in Hiragana (e.g. adverbs, conjunctions) and Katakana (e.g. loanwords) as well as Kanji words. Do not limit to only words containing Kanji.\n"
-                    f"- Include verbs, nouns, adjectives, adverbs, conjunctions, and katakana loanwords.\n"
+                    f"- **CRITICAL FOR JAPANESE**: You MUST extract a balanced mix of Kanji, Hiragana-only, and Katakana-only words. At least 35% of the extracted Japanese words must be pure Hiragana (e.g., adverbs like 'ゆっくり', 'ちょっと', 'ほとんど', conjunctions like 'しかし', 'だから', verbs written in hiragana) or Katakana loanwords (e.g., 'コーヒー', 'パン', 'ホテル', 'パソコン'). Do NOT extract only Kanji-containing words.\n"
                     f"- For verbs, adjectives, and inflected words in non-dictionary form, ALWAYS provide their base_form.\n"
-                    f"- Skip basic grammatical particles (은/는/이/가 in Korean, or は/가/을/에/に in Japanese) unless they are part of a compound phrase.\n"
+                    f"- Skip basic grammatical particles (은/는/이/가 in Korean, or は/が/を/に/へ/で in Japanese) unless they are part of a compound phrase.\n"
                     f"\n### OUTPUT VALIDATION:\n"
                     f"Before returning, verify:\n"
                     f"- ✓ Every word object has exactly 6 fields\n"
@@ -383,6 +440,64 @@ class TranslationServerHandler(http.server.SimpleHTTPRequestHandler):
                         print(f"Warning: {last_error}")
                     except Exception as e:
                         last_error = f"Exception for model {model_name}: {str(e)}"
+                        print(f"Warning: {last_error}")
+                
+                # Fallback to OpenAI if all Gemini models failed and OPENAI_API_KEY is available
+                if not response_text and openai_key:
+                    print("Falling back to OpenAI for vocabulary extraction...")
+                    try:
+                        openai_payload = {
+                            "model": "gpt-4o-mini",
+                            "messages": [{"role": "user", "content": prompt}],
+                            "response_format": {
+                                "type": "json_schema",
+                                "json_schema": {
+                                    "name": "vocabulary_response",
+                                    "strict": True,
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "words": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "word": { "type": "string" },
+                                                        "translation": { "type": "string" },
+                                                        "language": { "type": "string" },
+                                                        "kanji": { "type": "string" },
+                                                        "furigana": { "type": "string" },
+                                                        "base_form": { "type": "string" }
+                                                    },
+                                                    "required": ["word", "translation", "language", "kanji", "furigana", "base_form"],
+                                                    "additionalProperties": False
+                                                }
+                                            }
+                                        },
+                                        "required": ["words"],
+                                        "additionalProperties": False
+                                    }
+                                }
+                            }
+                        }
+
+                        req_openai = urllib.request.Request(
+                            "https://api.openai.com/v1/chat/completions",
+                            data=json.dumps(openai_payload).encode('utf-8'),
+                            headers={
+                                'Content-Type': 'application/json',
+                                'Authorization': f'Bearer {openai_key}'
+                            },
+                            method='POST'
+                        )
+
+                        with urllib.request.urlopen(req_openai, timeout=timeout_val) as res_openai:
+                            res_body_openai = res_openai.read().decode('utf-8')
+                            openai_res = json.loads(res_body_openai)
+                            response_text = openai_res.get('choices', [{}])[0].get('message', {}).get('content', '')
+                            print("Successfully received vocabulary response from OpenAI (gpt-4o-mini)")
+                    except Exception as e:
+                        last_error = f"OpenAI fallback failed: {str(e)}"
                         print(f"Warning: {last_error}")
                 
                 if not response_text:

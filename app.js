@@ -735,11 +735,12 @@ async function executeTranslation() {
                     <button class="btn btn-secondary" onclick="retryWordExtraction()" style="margin-top: 10px;">다시 시도</button>
                 </div>
             `;
+            showErrorModal(extractErr.message);
         }
 
     } catch (err) {
         console.error('번역 처리 오류:', err);
-        showToast(`🚨 ${err.message}`, 'danger');
+        showErrorModal(err.message);
         showLoading(false);
     }
 }
@@ -887,6 +888,7 @@ async function retryWordExtraction() {
                 <button class="btn btn-secondary" onclick="retryWordExtraction()" style="margin-top: 10px;">다시 시도</button>
             </div>
         `;
+        showErrorModal(extractErr.message);
     }
 }
 
@@ -1280,6 +1282,29 @@ window.openModal = function(modalId) {
 
 window.closeModal = function(modalId) {
     document.getElementById(modalId).classList.remove('active');
+};
+
+window.showErrorModal = function(errorMsg) {
+    const detailsContainer = document.getElementById('error-alert-details');
+    if (!detailsContainer) return;
+    
+    let friendlyMsg = "알 수 없는 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
+    const lowerMsg = (errorMsg || '').toLowerCase();
+    
+    if (lowerMsg.includes('timeout') || lowerMsg.includes('504') || lowerMsg.includes('502') || lowerMsg.includes('time out') || lowerMsg.includes('abort') || lowerMsg.includes('deadline')) {
+        friendlyMsg = "<strong>요청 시간 초과 (Timeout) / 게이트웨이 오류</strong><br>번역 서버의 처리 제한 시간을 초과했거나 연결에 실패했습니다.<br>• 원인: 첨부한 이미지의 파일 크기가 너무 크거나 번역할 텍스트 분량이 너무 많을 수 있습니다.<br>• 해결책: 이미지 파일의 해상도를 낮추거나 텍스트를 적당히 나누어서 다시 시도해 주시기 바랍니다.";
+    } else if (lowerMsg.includes('429') || lowerMsg.includes('rate limit') || lowerMsg.includes('too many requests')) {
+        friendlyMsg = "<strong>요청 횟수 제한 초과 (Rate Limit)</strong><br>단시간에 너무 많은 요청이 발생했습니다.<br>• 원인: 무료 API 이용 횟수 한도를 넘었습니다.<br>• 해결책: 약 1~2분 정도 대기하신 후 다시 시도해 주시기 바랍니다.";
+    } else if (lowerMsg.includes('quota') || lowerMsg.includes('exhausted') || lowerMsg.includes('limit') || lowerMsg.includes('billing')) {
+        friendlyMsg = "<strong>사용 한도 초과 (Quota Exceeded)</strong><br>AI 모델의 무료 또는 유료 호출 한도가 모두 소진되었습니다.<br>• 원인: Gemini 또는 OpenAI 서비스 계정의 이용 한도(Quota)가 모두 사용되었습니다.<br>• 해결책: 관리자 계정 상태 점검이 필요하므로 잠시 후 다시 시도해 주시기 바랍니다.";
+    } else if (lowerMsg.includes('fetch') || lowerMsg.includes('network') || lowerMsg.includes('failed to fetch')) {
+        friendlyMsg = "<strong>네트워크 오류 (Network Error)</strong><br>인터넷 연결이 원활하지 않거나 서버와 통신할 수 없습니다.<br>• 원인: 로컬 인터넷 불안정 또는 네트워크 방화벽 차단일 수 있습니다.<br>• 해결책: 인터넷 연결 상태를 확인하고 잠시 후 다시 시도해 주세요.";
+    } else {
+        friendlyMsg = `<strong>서버 및 모델 API 오류</strong><br>${escapeHtml(errorMsg)}<br>• 원인: AI 모델 처리 중 에러가 반환되었습니다.<br>• 해결책: 입력한 내용을 확인해 보시고 잠시 후 다시 시도해 주세요.`;
+    }
+
+    detailsContainer.innerHTML = friendlyMsg;
+    openModal('error-alert-modal');
 };
 
 function showToast(message, type = 'success') {

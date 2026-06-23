@@ -187,10 +187,85 @@ export default async function handler(req, res) {
             }
         }
 
-    if (!responseText) {
-        console.error('All Gemini models failed:', lastError);
-        return res.status(502).json({ error: `모든 번역 모델 호출에 실패했습니다. 마지막 오류: ${lastError}` });
-    }
+        // Fallback to OpenAI if all Gemini models failed and OPENAI_API_KEY is available
+        const openAIKey = process.env.OPENAI_API_KEY || '';
+        if (!responseText && openAIKey) {
+            console.log("Falling back to OpenAI for translation...");
+            const elapsed = Date.now() - startTime;
+            const remainingTime = VERCEL_TIMEOUT_LIMIT - elapsed;
+
+            if (remainingTime > 1500) {
+                let timeoutId;
+                const timeoutPromise = new Promise((_, reject) => {
+                    timeoutId = setTimeout(() => reject(new Error('OpenAI timeout')), remainingTime - 500);
+                });
+
+                try {
+                    let messages = [];
+                    let userContent = [{ type: "text", text: prompt }];
+                    
+                    if (image) {
+                        userContent.push({
+                            type: "image_url",
+                            image_url: {
+                                url: `data:${image.mime_type};base64,${image.data}`
+                            }
+                        });
+                    }
+                    messages.push({ role: "user", content: userContent });
+
+                    const fetchPromise = fetch("https://api.openai.com/v1/chat/completions", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Authorization": `Bearer ${openAIKey}`
+                        },
+                        body: JSON.stringify({
+                            model: "gpt-4o-mini",
+                            messages: messages,
+                            response_format: {
+                                type: "json_schema",
+                                json_schema: {
+                                    name: "translation_response",
+                                    strict: true,
+                                    schema: {
+                                        type: "object",
+                                        properties: {
+                                            translated_text: { type: "string" },
+                                            original_text: { type: "string" },
+                                            detected_source_language: { type: "string" }
+                                        },
+                                        required: ["translated_text", "original_text", "detected_source_language"],
+                                        additionalProperties: false
+                                    }
+                                }
+                            }
+                        })
+                    });
+
+                    const openaiResponse = await Promise.race([fetchPromise, timeoutPromise]);
+                    clearTimeout(timeoutId);
+
+                    if (!openaiResponse.ok) {
+                        const errText = await openaiResponse.text();
+                        throw new Error(`HTTP ${openaiResponse.status}: ${errText}`);
+                    }
+
+                    const openaiData = await openaiResponse.json();
+                    responseText = openaiData.choices?.[0]?.message?.content || '';
+                    console.log("Successfully received translation response from OpenAI (gpt-4o-mini)");
+                } catch (err) {
+                    clearTimeout(timeoutId);
+                    lastError = `OpenAI fallback failed: ${err.message || err}`;
+                    console.warn(lastError);
+                }
+            }
+        }
+
+        if (!responseText) {
+            console.error('All translation models failed:', lastError);
+            return res.status(502).json({ error: `모든 번역 모델 호출에 실패했습니다. 마지막 오류: ${lastError}` });
+        }
 
     let result;
     try {

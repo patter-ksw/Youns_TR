@@ -97,13 +97,12 @@ export default async function handler(req, res) {
         `English:\n` +
         `  {"word": "book", "translation": "책", "language": "English", "kanji": "", "furigana": "", "base_form": ""}\n` +
         `\n### EXTRACTION RULES:\n` +
-        `- Extract BOTH basic (everyday, common vocabulary) and advanced (academic, professional, technical vocabulary) words/phrases. Do not limit to only difficult or rare words.\n` +
+        `- Extract BOTH basic (everyday, common vocabulary) and advanced (academic, professional, etc.) words/phrases. Do not limit to only difficult or rare words.\n` +
         `- Include common verbs, nouns, adjectives, adverbs, and conjunctions that are helpful for language learners of all levels.\n` +
         `- Extract as many vocabulary words/phrases as possible (up to 25-30 words, minimum 15 words if the text is long enough. Even for short texts, include basic words to reach at least 10-15 words).\n` +
-        `- For Japanese, you MUST extract words written in Hiragana (e.g. adverbs, conjunctions) and Katakana (e.g. loanwords) as well as Kanji words. Do not limit to only words containing Kanji.\n` +
-        `- Include verbs, nouns, adjectives, adverbs, conjunctions, and katakana loanwords.\n` +
+        `- **CRITICAL FOR JAPANESE**: You MUST extract a balanced mix of Kanji, Hiragana-only, and Katakana-only words. At least 35% of the extracted Japanese words must be pure Hiragana (e.g., adverbs like 'ゆっくり', 'ちょっと', 'ほとんど', conjunctions like 'しかし', 'だから', verbs written in hiragana) or Katakana loanwords (e.g., 'コーヒー', 'パン', 'ホテル', 'パソコン'). Do NOT extract only Kanji-containing words.\n` +
         `- For verbs, adjectives, and inflected words in non-dictionary form, ALWAYS provide their base_form.\n` +
-        `- Skip basic grammatical particles (은/는/이/가 in Korean, or は/が/を/에/に in Japanese) unless they are part of a compound phrase.\n` +
+        `- Skip basic grammatical particles (은/는/이/가 in Korean, or は/が/을/를/에/에서/도/니/へ/で in Japanese) unless they are part of a compound phrase.\n` +
         `\n### OUTPUT VALIDATION:\n` +
         `Before returning, verify:\n` +
         `- ✓ Every word object has exactly 6 fields\n` +
@@ -219,6 +218,81 @@ export default async function handler(req, res) {
                 clearTimeout(timeoutId);
                 lastError = `Model ${modelName} failed: ${err.message || err}`;
                 console.warn(lastError);
+            }
+        }
+
+        // Fallback to OpenAI if all Gemini models failed and OPENAI_API_KEY is available
+        const openAIKey = process.env.OPENAI_API_KEY || '';
+        if (!responseText && openAIKey) {
+            console.log("Falling back to OpenAI for vocabulary extraction...");
+            const elapsed = Date.now() - startTime;
+            const remainingTime = VERCEL_TIMEOUT_LIMIT - elapsed;
+
+            if (remainingTime > 1500) {
+                let timeoutId;
+                const timeoutPromise = new Promise((_, reject) => {
+                    timeoutId = setTimeout(() => reject(new Error('OpenAI timeout')), remainingTime - 500);
+                });
+
+                try {
+                    const fetchPromise = fetch("https://api.openai.com/v1/chat/completions", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Authorization": `Bearer ${openAIKey}`
+                        },
+                        body: JSON.stringify({
+                            model: "gpt-4o-mini",
+                            messages: [{ role: "user", content: prompt }],
+                            response_format: {
+                                type: "json_schema",
+                                json_schema: {
+                                    name: "vocabulary_response",
+                                    strict: true,
+                                    schema: {
+                                        type: "object",
+                                        properties: {
+                                            words: {
+                                                type: "array",
+                                                items: {
+                                                    type: "object",
+                                                    properties: {
+                                                        word: { type: "string" },
+                                                        translation: { type: "string" },
+                                                        language: { type: "string" },
+                                                        kanji: { type: "string" },
+                                                        furigana: { type: "string" },
+                                                        base_form: { type: "string" }
+                                                    },
+                                                    required: ["word", "translation", "language", "kanji", "furigana", "base_form"],
+                                                    additionalProperties: false
+                                                }
+                                            }
+                                        },
+                                        required: ["words"],
+                                        additionalProperties: false
+                                    }
+                                }
+                            }
+                        })
+                    });
+
+                    const openaiResponse = await Promise.race([fetchPromise, timeoutPromise]);
+                    clearTimeout(timeoutId);
+
+                    if (!openaiResponse.ok) {
+                        const errText = await openaiResponse.text();
+                        throw new Error(`HTTP ${openaiResponse.status}: ${errText}`);
+                    }
+
+                    const openaiData = await openaiResponse.json();
+                    responseText = openaiData.choices?.[0]?.message?.content || '';
+                    console.log("Successfully received vocabulary response from OpenAI (gpt-4o-mini)");
+                } catch (err) {
+                    clearTimeout(timeoutId);
+                    lastError = `OpenAI fallback failed: ${err.message || err}`;
+                    console.warn(lastError);
+                }
             }
         }
 

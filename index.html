@@ -368,6 +368,30 @@
         </div>
     </div>
 
+    <!-- Error Alert Modal -->
+    <div id="error-alert-modal" class="modal-overlay">
+        <div class="modal error-modal" style="max-width: 450px;">
+            <div class="modal-header" style="border-bottom: 1px solid rgba(239, 68, 68, 0.1);">
+                <h3 class="modal-title" style="color: var(--danger-color); display: flex; align-items: center; gap: 8px;">
+                    <span>⚠️</span> 번역/추출 중 오류 발생
+                </h3>
+                <button class="modal-close" onclick="closeModal('error-alert-modal')">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 20px; display: flex; flex-direction: column; gap: 15px;">
+                <p style="margin: 0; font-weight: 600; font-size: 16px; color: var(--text-primary); text-align: center;">잠시후 시도해 주세요</p>
+                <div id="error-alert-details" style="margin: 0; font-size: 14px; color: var(--text-secondary); line-height: 1.6; background: rgba(239, 68, 68, 0.05); padding: 12px; border-radius: 8px; border-left: 4px solid var(--danger-color); max-height: 180px; overflow-y: auto; word-break: break-all;">
+                    오류 세부 내용이 여기에 표시됩니다.
+                </div>
+                <p style="margin: 0; font-size: 13px; color: var(--text-muted); font-style: italic; text-align: center; border-top: 1px solid var(--border-color); padding-top: 12px;">
+                    지속 발생시 Youn's Playground 게시판에 등록해 주세요
+                </p>
+            </div>
+            <div class="modal-footer" style="padding: 15px 20px; border-top: none; justify-content: center;">
+                <button class="btn btn-primary" onclick="closeModal('error-alert-modal')" style="min-width: 100px; justify-content: center; background: var(--danger-color); border-color: var(--danger-color);">확인</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notification -->
     <div id="toast" class="toast">알림 메시지</div>
 
