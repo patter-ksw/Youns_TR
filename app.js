@@ -703,10 +703,6 @@ async function executeTranslation() {
             const extractResult = await extractResponse.json();
             extractedWords = extractResult.words || [];
 
-            if (extractedWords.length > 0 && supabaseClient) {
-                await saveExtractedWordsToGlobal(extractedWords);
-            }
-
             // Render the final extracted list
             renderExtractedWordsList();
 
@@ -890,10 +886,6 @@ async function retryWordExtraction() {
         const extractResult = await extractResponse.json();
         extractedWords = extractResult.words || [];
 
-        if (extractedWords.length > 0 && supabaseClient) {
-            await saveExtractedWordsToGlobal(extractedWords);
-        }
-
         renderExtractedWordsList();
 
     } catch (extractErr) {
@@ -941,6 +933,9 @@ async function addSelectedWordsToMyWordbook() {
             .upsert(userWords, { onConflict: 'user_id,language,word' });
 
         if (error) throw error;
+
+        // Also save the selected words to the Global Wordbook
+        await saveExtractedWordsToGlobal(wordsToAdd);
 
         showToast(`⭐ 선택한 ${wordsToAdd.length}개 단어가 '나만의 단어장'에 저장되었습니다.`);
         
