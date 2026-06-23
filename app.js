@@ -813,12 +813,14 @@ function renderExtractedWordsList() {
                 <span class="word-trans">${escapeHtml(wordObj.translation)}</span>
                 <span class="word-lang-badge">${escapeHtml(wordObj.language)}</span>
             </div>
+            <button class="btn-card-tts" onclick="playWordTts('${escapeHtml(wordObj.word)}', '${escapeHtml(wordObj.language)}')" title="발음 듣기">🔊</button>
         `;
 
         // Card click select utility
         card.addEventListener('click', (e) => {
-            // Avoid double toggle if clicked checkbox itself
+            // Avoid double toggle if clicked checkbox itself or the TTS button
             if (e.target.classList.contains('word-checkbox')) return;
+            if (e.target.classList.contains('btn-card-tts') || e.target.closest('.btn-card-tts')) return;
             
             const chk = card.querySelector('.word-checkbox');
             chk.checked = !chk.checked;
