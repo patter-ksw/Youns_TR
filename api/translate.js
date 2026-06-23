@@ -105,74 +105,84 @@ export default async function handler(req, res) {
         },
     };
 
+    const startTime = Date.now();
+    const VERCEL_TIMEOUT_LIMIT = 9500; // 9.5s max to allow Vercel response buffer
+
     try {
         const isHeavy = !!image || (text && text.length > 500);
 
         const modelsToTry = [
-        'gemini-flash-latest',
-        'gemini-2.5-flash-lite',
-        'gemini-3.1-flash-lite',
-        'gemini-2.0-flash-lite',
-        'gemini-flash-lite-latest'
-    ];
+            'gemini-flash-latest',
+            'gemini-2.5-flash-lite',
+            'gemini-3.1-flash-lite',
+            'gemini-2.0-flash-lite',
+            'gemini-flash-lite-latest'
+        ];
 
-    let responseText = '';
-    let lastError = null;
+        let responseText = '';
+        let lastError = null;
 
-    for (let i = 0; i < modelsToTry.length; i++) {
-        const modelName = modelsToTry[i];
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey}`;
+        for (let i = 0; i < modelsToTry.length; i++) {
+            const modelName = modelsToTry[i];
+            const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey}`;
 
-        // Determine timeout dynamically:
-        // Heavy payloads (OCR or long text) get 9.0s on the first attempt so Gemini has enough time to finish.
-        // Light payloads (short text) get sliced into 4.5s for 1st attempt, 4.5s for 2nd.
-        let timeoutVal = 4500;
-        if (isHeavy) {
-            timeoutVal = (i === 0) ? 9000 : 500;
+            const elapsed = Date.now() - startTime;
+            const remainingTime = VERCEL_TIMEOUT_LIMIT - elapsed;
+
+            if (remainingTime < 1500) {
+                console.warn(`Skipping model ${modelName} because remaining time is only ${remainingTime}ms`);
+                continue;
+            }
+
+            // Cap the first attempt to leave time for backup models if it hangs.
+            // Subsequent attempts get the full remaining time.
+            let timeoutVal = remainingTime;
+            if (i === 0 && remainingTime > 6000) {
+                timeoutVal = isHeavy ? 7500 : 5000;
+            }
+
+            let timeoutId;
+            const timeoutPromise = new Promise((_, reject) => {
+                timeoutId = setTimeout(() => reject(new Error('timeout')), timeoutVal);
+            });
+
+            try {
+                console.log(`Trying Gemini model (${i + 1}/${modelsToTry.length}): ${modelName} (timeout=${timeoutVal}ms, remaining=${remainingTime}ms)...`);
+                const geminiResponse = await Promise.race([
+                    fetch(geminiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    }),
+                    timeoutPromise
+                ]);
+                clearTimeout(timeoutId);
+
+                if (!geminiResponse.ok) {
+                    const errText = await geminiResponse.text();
+                    throw new Error(`HTTP ${geminiResponse.status}: ${errText}`);
+                }
+
+                const geminiData = await geminiResponse.json();
+                const candidates = geminiData.candidates || [];
+                if (!candidates.length) {
+                    throw new Error('candidates가 없습니다.');
+                }
+
+                const responseParts = candidates[0]?.content?.parts || [];
+                if (!responseParts.length) {
+                    throw new Error('content parts가 없습니다.');
+                }
+
+                responseText = responseParts[0]?.text || '';
+                console.log(`Successfully received response from model: ${modelName}`);
+                break; // Success! Break the loop
+            } catch (err) {
+                clearTimeout(timeoutId);
+                lastError = `Model ${modelName} failed: ${err.message || err}`;
+                console.warn(lastError);
+            }
         }
-
-        let timeoutId;
-        const timeoutPromise = new Promise((_, reject) => {
-            timeoutId = setTimeout(() => reject(new Error('timeout')), timeoutVal);
-        });
-
-        try {
-            console.log(`Trying Gemini model (${i + 1}/${modelsToTry.length}): ${modelName} (timeout=${timeoutVal}ms)...`);
-            const geminiResponse = await Promise.race([
-                fetch(geminiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                }),
-                timeoutPromise
-            ]);
-            clearTimeout(timeoutId);
-
-            if (!geminiResponse.ok) {
-                const errText = await geminiResponse.text();
-                throw new Error(`HTTP ${geminiResponse.status}: ${errText}`);
-            }
-
-            const geminiData = await geminiResponse.json();
-            const candidates = geminiData.candidates || [];
-            if (!candidates.length) {
-                throw new Error('candidates가 없습니다.');
-            }
-
-            const responseParts = candidates[0]?.content?.parts || [];
-            if (!responseParts.length) {
-                throw new Error('content parts가 없습니다.');
-            }
-
-            responseText = responseParts[0]?.text || '';
-            console.log(`Successfully received response from model: ${modelName}`);
-            break; // Success! Break the loop
-        } catch (err) {
-            clearTimeout(timeoutId);
-            lastError = `Model ${modelName} failed: ${err.message || err}`;
-            console.warn(lastError);
-        }
-    }
 
     if (!responseText) {
         console.error('All Gemini models failed:', lastError);

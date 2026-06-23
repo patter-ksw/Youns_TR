@@ -151,14 +151,28 @@ export default async function handler(req, res) {
     let responseText = '';
     let lastError = null;
 
-    try {
-        // Since vocab extraction has no image and is isolated, it is relatively fast (typically 3-4 seconds).
-        // We set the timeout limit per attempt to 8.5 seconds.
-        const timeoutVal = 8500;
+    const startTime = Date.now();
+    const VERCEL_TIMEOUT_LIMIT = 9500; // 9.5s max to allow Vercel response buffer
 
+    try {
         for (let i = 0; i < modelsToTry.length; i++) {
             const modelName = modelsToTry[i];
             const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey}`;
+
+            const elapsed = Date.now() - startTime;
+            const remainingTime = VERCEL_TIMEOUT_LIMIT - elapsed;
+
+            if (remainingTime < 1500) {
+                console.warn(`Skipping model ${modelName} because remaining time is only ${remainingTime}ms`);
+                continue;
+            }
+
+            // Cap the first attempt to leave time for backup models if it hangs.
+            // Subsequent attempts get the full remaining time.
+            let timeoutVal = remainingTime;
+            if (i === 0 && remainingTime > 6000) {
+                timeoutVal = 7000;
+            }
 
             let timeoutId;
             const timeoutPromise = new Promise((_, reject) => {
@@ -166,7 +180,7 @@ export default async function handler(req, res) {
             });
 
             try {
-                console.log(`Trying Gemini vocab model (${i + 1}/${modelsToTry.length}): ${modelName} (timeout=${timeoutVal}ms)...`);
+                console.log(`Trying Gemini vocab model (${i + 1}/${modelsToTry.length}): ${modelName} (timeout=${timeoutVal}ms, remaining=${remainingTime}ms)...`);
                 const geminiResponse = await Promise.race([
                     fetch(geminiUrl, {
                         method: 'POST',
