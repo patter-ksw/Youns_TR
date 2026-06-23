@@ -1049,3 +1049,36 @@ header h1 {
     transform: translateY(0);
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
+
+/* Word cell layout for TTS button in table */
+.word-cell-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.word-cell-wrap .btn-tts-word {
+    padding: 3px 6px;
+    font-size: 0.85rem;
+    border-radius: 6px;
+    background: none;
+    border: 1px solid rgba(139, 92, 246, 0.15);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 26px;
+    width: 26px;
+}
+
+.word-cell-wrap .btn-tts-word:hover {
+    background: rgba(139, 92, 246, 0.08) !important;
+    border-color: var(--accent-purple);
+    transform: scale(1.1);
+}
+
+.word-cell-text {
+    flex-grow: 1;
+}

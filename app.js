@@ -1024,11 +1024,17 @@ function renderMyWordbookTable(words) {
 
         tr.innerHTML = `
             <td><span class="word-lang-badge">${escapeHtml(w.language)}</span></td>
-            <td class="col-word">${wordContent}${baseFormContent}</td>
+            <td class="col-word">
+                <div class="word-cell-wrap">
+                    <button class="btn btn-tts-word" onclick="playWordTts('${escapeHtml(w.word)}', '${escapeHtml(w.language)}')" title="발음 듣기">🔊</button>
+                    <div class="word-cell-text">
+                        ${wordContent}${baseFormContent}
+                    </div>
+                </div>
+            </td>
             <td class="col-translation">${escapeHtml(w.translation)}</td>
             <td>
                 <div class="wordbook-action-btns">
-                    <button class="btn btn-tts-word" onclick="playWordTts('${escapeHtml(w.word)}', '${escapeHtml(w.language)}')">🔊</button>
                     <button class="btn btn-edit-word" onclick="showWordEditModal(${w.id}, '${escapeHtml(w.language)}', '${escapeHtml(w.word)}', '${escapeHtml(w.translation)}', 'my')">✏️</button>
                     <button class="btn btn-danger" onclick="deleteUserWord(${w.id})">🗑️</button>
                 </div>
@@ -1123,7 +1129,6 @@ function renderGlobalWordbookTable(words) {
         if (isAdmin) {
             actionButtons = `
                 <div class="wordbook-action-btns">
-                    <button class="btn btn-tts-word" onclick="playWordTts('${escapeHtml(w.word)}', '${escapeHtml(w.language)}')">🔊</button>
                     <button class="btn btn-edit-word" onclick="showWordEditModal(${w.id}, '${escapeHtml(w.language)}', '${escapeHtml(w.word)}', '${escapeHtml(w.translation)}', 'global')">✏️</button>
                     <button class="btn btn-danger" onclick="deleteGlobalWord(${w.id})">🗑️</button>
                 </div>
@@ -1131,7 +1136,6 @@ function renderGlobalWordbookTable(words) {
         } else {
             actionButtons = `
                 <div class="wordbook-action-btns" style="gap: 5px;">
-                    <button class="btn btn-tts-word" onclick="playWordTts('${escapeHtml(w.word)}', '${escapeHtml(w.language)}')">🔊</button>
                     <button class="btn btn-primary" onclick="addSingleGlobalWordToMyWordbook(${w.id})">내 단어장에 추가</button>
                 </div>
             `;
@@ -1147,7 +1151,14 @@ function renderGlobalWordbookTable(words) {
 
         tr.innerHTML = `
             <td><span class="word-lang-badge">${escapeHtml(w.language)}</span></td>
-            <td class="col-word">${wordContent}${baseFormContent}</td>
+            <td class="col-word">
+                <div class="word-cell-wrap">
+                    <button class="btn btn-tts-word" onclick="playWordTts('${escapeHtml(w.word)}', '${escapeHtml(w.language)}')" title="발음 듣기">🔊</button>
+                    <div class="word-cell-text">
+                        ${wordContent}${baseFormContent}
+                    </div>
+                </div>
+            </td>
             <td class="col-translation">${escapeHtml(w.translation)}</td>
             <td class="col-creator" style="font-size: 0.9em; color: var(--text-secondary);">${creatorDisplay}</td>
             <td>${actionButtons}</td>
