@@ -601,7 +601,7 @@ async function executeTranslation() {
         return;
     }
 
-    showLoading(true, currentFile && currentFile.mime_type.startsWith('image/') ? '이미지 문장 인식 및 번역 중...' : '번역 및 단어 추출 중...');
+    showLoading(true, currentFile && currentFile.mime_type.startsWith('image/') ? '이미지 문장 인식 및 번역 중...' : '번역 중...');
 
     try {
         const payload = {
@@ -636,7 +636,9 @@ async function executeTranslation() {
         document.getElementById('target-text').value = result.translated_text;
         
         // If image was OCR-ed, write the detected text back to source textarea
+        let ocrText = text;
         if (result.original_text && currentFile && currentFile.mime_type.startsWith('image/')) {
+            ocrText = result.original_text;
             document.getElementById('source-text').value = result.original_text;
             document.getElementById('current-char-count').innerText = result.original_text.length;
         }
@@ -647,37 +649,90 @@ async function executeTranslation() {
         document.getElementById('btn-source-copy').removeAttribute('disabled');
         document.getElementById('btn-source-tts').removeAttribute('disabled');
 
-        // 2. Save Extracted Words to Database (Global wordbook - tr_global_words)
-        extractedWords = result.words || [];
-        
-        if (extractedWords.length > 0 && supabaseClient) {
-            // Map words to database structure: language, word, translation, kanji, furigana, base_form
-            const dbWords = extractedWords.map(w => ({
-                language: w.language,
-                word: w.word.trim(),
-                translation: w.translation.trim(),
-                kanji: w.kanji || null,           // Japanese kanji
-                furigana: w.furigana || null,     // Japanese furigana (reading)
-                base_form: w.base_form || null    // Japanese verb base form
-            }));
+        // Turn off main loading overlay so user can read/copy the translation immediately
+        showLoading(false);
 
-            // Insert into tr_global_words and ignore duplicate key conflicts (language, word)
-            const { error: dbError } = await supabaseClient
-                .from('tr_global_words')
-                .insert(dbWords, { onConflict: 'language,word', ignoreDuplicates: true });
+        // 2. Start Vocabulary Extraction in the background
+        const section = document.getElementById('extracted-words-section');
+        const grid = document.getElementById('extracted-words-grid');
+        section.style.display = 'block';
+        grid.innerHTML = `
+            <div class="words-loading-container" style="grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem 1.5rem; gap: 15px; color: var(--text-secondary);">
+                <div class="spinner"></div>
+                <p style="margin: 0; font-weight: 500; font-size: 0.95rem;">문장에서 단어 추출 중... 잠시만 기다려 주세요.</p>
+            </div>
+        `;
 
-            if (dbError) {
-                console.error('글로벌 단어 저장 오류:', dbError);
-            }
+        // Hide "save to my words" button while loading
+        const btnAddWords = document.getElementById('btn-add-to-my-words');
+        if (btnAddWords) {
+            btnAddWords.style.display = 'none';
+            btnAddWords.setAttribute('disabled', 'true');
         }
 
-        // 3. Render Extracted Words list
-        renderExtractedWordsList();
+        // Save translation variables globally for retry support
+        window.lastOriginalText = ocrText;
+        window.lastTranslatedText = result.translated_text;
+
+        try {
+            const extractPayload = {
+                original_text: ocrText,
+                translated_text: result.translated_text,
+                source_lang: sourceLang,
+                target_lang: targetLang
+            };
+
+            const extractResponse = await fetch('/api/extract-words', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(extractPayload)
+            });
+
+            if (!extractResponse.ok) {
+                const errData = await extractResponse.json();
+                throw new Error(errData.error || '단어 추출 요청 실패');
+            }
+
+            const extractResult = await extractResponse.json();
+            extractedWords = extractResult.words || [];
+
+            if (extractedWords.length > 0 && supabaseClient) {
+                // Map words to database structure: language, word, translation, kanji, furigana, base_form
+                const dbWords = extractedWords.map(w => ({
+                    language: w.language,
+                    word: w.word.trim(),
+                    translation: w.translation.trim(),
+                    kanji: w.kanji || null,           // Japanese kanji
+                    furigana: w.furigana || null,     // Japanese furigana (reading)
+                    base_form: w.base_form || null    // Japanese verb base form
+                }));
+
+                // Insert into tr_global_words and ignore duplicate key conflicts (language, word)
+                const { error: dbError } = await supabaseClient
+                    .from('tr_global_words')
+                    .insert(dbWords, { onConflict: 'language,word', ignoreDuplicates: true });
+
+                if (dbError) {
+                    console.error('글로벌 단어 저장 오류:', dbError);
+                }
+            }
+
+            // Render the final extracted list
+            renderExtractedWordsList();
+
+        } catch (extractErr) {
+            console.error('단어 추출 중 오류 발생:', extractErr);
+            grid.innerHTML = `
+                <div style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: var(--text-danger);">
+                    <p style="margin: 0; font-weight: 500;">⚠️ 단어 추출에 실패했습니다: ${escapeHtml(extractErr.message)}</p>
+                    <button class="btn btn-secondary" onclick="retryWordExtraction()" style="margin-top: 10px;">다시 시도</button>
+                </div>
+            `;
+        }
 
     } catch (err) {
         console.error('번역 처리 오류:', err);
         showToast(`🚨 ${err.message}`, 'danger');
-    } finally {
         showLoading(false);
     }
 }
@@ -757,6 +812,74 @@ function updateAddWordsButtonState() {
     } else {
         addBtn.style.display = 'none';
         addBtn.disabled = true;
+    }
+}
+
+async function retryWordExtraction() {
+    const grid = document.getElementById('extracted-words-grid');
+    if (!grid) return;
+    
+    grid.innerHTML = `
+        <div class="words-loading-container" style="grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem 1.5rem; gap: 15px; color: var(--text-secondary);">
+            <div class="spinner"></div>
+            <p style="margin: 0; font-weight: 500; font-size: 0.95rem;">문장에서 단어 추출 중... 잠시만 기다려 주세요.</p>
+        </div>
+    `;
+
+    try {
+        const sourceLang = document.getElementById('source-lang').value;
+        const targetLang = document.getElementById('target-lang').value;
+
+        const extractPayload = {
+            original_text: window.lastOriginalText,
+            translated_text: window.lastTranslatedText,
+            source_lang: sourceLang,
+            target_lang: targetLang
+        };
+
+        const extractResponse = await fetch('/api/extract-words', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(extractPayload)
+        });
+
+        if (!extractResponse.ok) {
+            const errData = await extractResponse.json();
+            throw new Error(errData.error || '단어 추출 요청 실패');
+        }
+
+        const extractResult = await extractResponse.json();
+        extractedWords = extractResult.words || [];
+
+        if (extractedWords.length > 0 && supabaseClient) {
+            const dbWords = extractedWords.map(w => ({
+                language: w.language,
+                word: w.word.trim(),
+                translation: w.translation.trim(),
+                kanji: w.kanji || null,
+                furigana: w.furigana || null,
+                base_form: w.base_form || null
+            }));
+
+            const { error: dbError } = await supabaseClient
+                .from('tr_global_words')
+                .insert(dbWords, { onConflict: 'language,word', ignoreDuplicates: true });
+
+            if (dbError) {
+                console.error('글로벌 단어 저장 오류:', dbError);
+            }
+        }
+
+        renderExtractedWordsList();
+
+    } catch (extractErr) {
+        console.error('단어 추출 중 오류 발생:', extractErr);
+        grid.innerHTML = `
+            <div style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: var(--text-danger);">
+                <p style="margin: 0; font-weight: 500;">⚠️ 단어 추출에 실패했습니다: ${escapeHtml(extractErr.message)}</p>
+                <button class="btn btn-secondary" onclick="retryWordExtraction()" style="margin-top: 10px;">다시 시도</button>
+            </div>
+        `;
     }
 }
 

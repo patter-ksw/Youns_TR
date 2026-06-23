@@ -7,6 +7,10 @@
         {
             "source": "/api/translate",
             "destination": "/api/translate"
+        },
+        {
+            "source": "/api/extract-words",
+            "destination": "/api/extract-words"
         }
     ]
 }
