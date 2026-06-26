@@ -90,6 +90,11 @@
                                 </div>
                             </div>
                         </div>
+                        <!-- OCR Retry Container -->
+                        <div id="ocr-retry-container" class="step-retry-container" style="display: none;">
+                            <span>⚠️ 글자 추출 중 오류(타임아웃)가 발생했습니다.</span>
+                            <button id="btn-ocr-retry" class="btn" onclick="retryOcr()">다시 시도</button>
+                        </div>
                     </div>
 
                     <div class="pane-footer">
@@ -135,6 +140,11 @@
                     
                     <div class="input-container">
                         <textarea id="target-text" class="translator-textarea target-textarea" placeholder="번역 결과가 여기에 표시됩니다." readonly></textarea>
+                        <!-- Translation Retry Container -->
+                        <div id="translate-retry-container" class="step-retry-container" style="display: none;">
+                            <span>⚠️ 번역 중 오류(타임아웃)가 발생했습니다.</span>
+                            <button id="btn-translate-retry" class="btn" onclick="retryTranslation()">다시 시도</button>
+                        </div>
                     </div>
 
                     <div class="pane-footer">
@@ -164,6 +174,11 @@
                 <div class="words-container">
                     <div id="extracted-words-grid" class="words-grid">
                         <!-- Extracted word cards will be injected here -->
+                    </div>
+                    <!-- Word Extraction Retry Container -->
+                    <div id="word-extract-retry-container" class="step-retry-container" style="display: none;">
+                        <span>⚠️ 단어 추출 중 오류(타임아웃)가 발생했습니다.</span>
+                        <button id="btn-word-retry" class="btn" onclick="retryWordExtraction()">다시 시도</button>
                     </div>
                 </div>
             </section>

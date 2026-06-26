@@ -590,39 +590,101 @@ function handleLogout() {
 }
 
 // 6. Translation and Word Extraction Logic
+// 6. Translation and Word Extraction Logic (3-Step Pipeline)
+window.tempSourceText = '';
+window.tempTargetText = '';
+window.lastDetectedSourceLang = '';
+
 async function executeTranslation() {
     const text = document.getElementById('source-text').value.trim();
     const sourceLang = document.getElementById('source-lang').value;
     const targetLang = document.getElementById('target-lang').value;
 
-    // Validation: Require text or image
-    if (!text && (!currentFile || !currentFile.base64Data)) {
-        showToast('⚠️ 번역할 텍스트를 입력하거나 이미지 파일을 첨부해 주세요.', 'danger');
-        return;
-    }
+    // Reset temporary states
+    window.tempSourceText = '';
+    window.tempTargetText = '';
+    window.lastDetectedSourceLang = sourceLang;
 
     // Clear old words immediately when starting a new translation
     extractedWords = [];
     const section = document.getElementById('extracted-words-section');
     if (section) section.style.display = 'none';
 
-    showLoading(true, currentFile && currentFile.mime_type.startsWith('image/') ? '이미지 문장 인식 및 번역 중...' : '번역 중...');
+    // Hide all retry containers
+    document.getElementById('ocr-retry-container').style.display = 'none';
+    document.getElementById('translate-retry-container').style.display = 'none';
+    document.getElementById('word-extract-retry-container').style.display = 'none';
+
+    if (currentFile && currentFile.mime_type.startsWith('image/')) {
+        // Step 1: Run OCR first
+        await runOcrStep();
+    } else {
+        // No image: directly save text inputs to buffer and run Translation (Step 2)
+        if (!text) {
+            showToast('⚠️ 번역할 텍스트를 입력하거나 이미지 파일을 첨부해 주세요.', 'danger');
+            return;
+        }
+        window.tempSourceText = text;
+        await runTranslationStep();
+    }
+}
+
+async function runOcrStep() {
+    showLoading(true, '이미지에서 글자 추출 중...');
+    document.getElementById('ocr-retry-container').style.display = 'none';
 
     try {
         const payload = {
-            source_lang: sourceLang,
-            target_lang: targetLang
-        };
-
-        if (currentFile && currentFile.mime_type.startsWith('image/')) {
-            // Send image for multimodal Gemini processing
-            payload.image = {
+            image: {
                 mime_type: currentFile.mime_type,
                 data: currentFile.base64Data
-            };
-        } else {
-            payload.text = text;
+            }
+        };
+
+        const response = await fetch('/api/ocr', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(errData.error || '글자 추출 요청 실패');
         }
+
+        const result = await response.json();
+        
+        // Write the detected text back to source textarea
+        window.tempSourceText = result.extracted_text;
+        window.lastDetectedSourceLang = result.detected_language || document.getElementById('source-lang').value;
+        
+        document.getElementById('source-text').value = result.extracted_text;
+        document.getElementById('current-char-count').innerText = result.extracted_text.length;
+
+        showLoading(false);
+        showToast('✔️ 글자 추출 성공! 번역을 시작합니다.');
+
+        // Step 1 Success -> Automatically run Step 2 (Translation)
+        await runTranslationStep();
+
+    } catch (err) {
+        console.error('OCR 처리 오류:', err);
+        showLoading(false);
+        document.getElementById('ocr-retry-container').style.display = 'flex';
+        showErrorModal(err.message);
+    }
+}
+
+async function runTranslationStep() {
+    showLoading(true, '문장 번역 중...');
+    document.getElementById('translate-retry-container').style.display = 'none';
+
+    try {
+        const payload = {
+            text: window.tempSourceText,
+            source_lang: window.lastDetectedSourceLang,
+            target_lang: document.getElementById('target-lang').value
+        };
 
         const response = await fetch('/api/translate', {
             method: 'POST',
@@ -637,90 +699,91 @@ async function executeTranslation() {
 
         const result = await response.json();
 
-        // 1. Render Results
+        // Render translation outputs
+        window.tempTargetText = result.translated_text;
         document.getElementById('target-text').value = result.translated_text;
         
-        // If image was OCR-ed, write the detected text back to source textarea
-        let ocrText = text;
-        if (result.original_text && currentFile && currentFile.mime_type.startsWith('image/')) {
-            ocrText = result.original_text;
-            document.getElementById('source-text').value = result.original_text;
-            document.getElementById('current-char-count').innerText = result.original_text.length;
+        // If API detected a different language during text-only translation, update state
+        if (result.detected_source_language) {
+            window.lastDetectedSourceLang = result.detected_source_language;
         }
 
-        // Enable buttons
+        // Enable action buttons
         document.getElementById('btn-copy').removeAttribute('disabled');
         document.getElementById('btn-tts').removeAttribute('disabled');
         document.getElementById('btn-source-copy').removeAttribute('disabled');
         document.getElementById('btn-source-tts').removeAttribute('disabled');
 
-        // Turn off main loading overlay so user can read/copy the translation immediately
         showLoading(false);
+        showToast('✔️ 번역 완료! 단어 추출을 시작합니다.');
 
-        // 2. Start Vocabulary Extraction in the background
-        const section = document.getElementById('extracted-words-section');
-        const grid = document.getElementById('extracted-words-grid');
-        section.style.display = 'block';
-        grid.innerHTML = `
-            <div class="words-loading-container" style="grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem 1.5rem; gap: 15px; color: var(--text-secondary);">
-                <div class="spinner"></div>
-                <p style="margin: 0; font-weight: 500; font-size: 0.95rem;">문장에서 단어 추출 중... 잠시만 기다려 주세요.</p>
-            </div>
-        `;
-
-        // Hide "save to my words" button while loading
-        const btnAddWords = document.getElementById('btn-add-to-my-words');
-        if (btnAddWords) {
-            btnAddWords.style.display = 'none';
-            btnAddWords.setAttribute('disabled', 'true');
-        }
-
-        // Save translation variables globally for retry support
-        window.lastOriginalText = ocrText;
-        window.lastTranslatedText = result.translated_text;
-        const detectedSourceLang = result.detected_source_language || sourceLang;
-        window.lastDetectedSourceLang = detectedSourceLang;
-
-        try {
-            const extractPayload = {
-                original_text: ocrText,
-                translated_text: result.translated_text,
-                source_lang: detectedSourceLang,
-                target_lang: targetLang
-            };
-
-            const extractResponse = await fetch('/api/extract-words', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(extractPayload)
-            });
-
-            if (!extractResponse.ok) {
-                const errData = await extractResponse.json();
-                throw new Error(errData.error || '단어 추출 요청 실패');
-            }
-
-            const extractResult = await extractResponse.json();
-            extractedWords = extractResult.words || [];
-
-            // Render the final extracted list
-            renderExtractedWordsList();
-
-        } catch (extractErr) {
-            console.error('단어 추출 중 오류 발생:', extractErr);
-            grid.innerHTML = `
-                <div style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: var(--text-danger);">
-                    <p style="margin: 0; font-weight: 500;">⚠️ 단어 추출에 실패했습니다: ${escapeHtml(extractErr.message)}</p>
-                    <button class="btn btn-secondary" onclick="retryWordExtraction()" style="margin-top: 10px;">다시 시도</button>
-                </div>
-            `;
-            showErrorModal(extractErr.message);
-        }
+        // Step 2 Success -> Automatically run Step 3 (Word Extraction)
+        await runWordExtractionStep();
 
     } catch (err) {
         console.error('번역 처리 오류:', err);
-        showErrorModal(err.message);
         showLoading(false);
+        document.getElementById('translate-retry-container').style.display = 'flex';
+        showErrorModal(err.message);
+    }
+}
+
+async function runWordExtractionStep() {
+    const section = document.getElementById('extracted-words-section');
+    const grid = document.getElementById('extracted-words-grid');
+    if (!section || !grid) return;
+
+    section.style.display = 'block';
+    document.getElementById('word-extract-retry-container').style.display = 'none';
+
+    grid.innerHTML = `
+        <div class="words-loading-container" style="grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem 1.5rem; gap: 15px; color: var(--text-secondary);">
+            <div class="spinner"></div>
+            <p style="margin: 0; font-weight: 500; font-size: 0.95rem;">문장에서 단어 추출 중... 잠시만 기다려 주세요.</p>
+        </div>
+    `;
+
+    // Hide "save to my words" button while loading
+    const btnAddWords = document.getElementById('btn-add-to-my-words');
+    if (btnAddWords) {
+        btnAddWords.style.display = 'none';
+        btnAddWords.setAttribute('disabled', 'true');
+    }
+
+    try {
+        const extractPayload = {
+            original_text: window.tempSourceText,
+            translated_text: window.tempTargetText,
+            source_lang: window.lastDetectedSourceLang,
+            target_lang: document.getElementById('target-lang').value
+        };
+
+        const extractResponse = await fetch('/api/extract-words', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(extractPayload)
+        });
+
+        if (!extractResponse.ok) {
+            const errData = await extractResponse.json();
+            throw new Error(errData.error || '단어 추출 요청 실패');
+        }
+
+        const extractResult = await extractResponse.json();
+        extractedWords = extractResult.words || [];
+
+        // Render the final extracted list
+        renderExtractedWordsList();
+
+    } catch (extractErr) {
+        console.error('단어 추출 중 오류 발생:', extractErr);
+        grid.innerHTML = `
+            <div style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: var(--text-danger);">
+                <p style="margin: 0; font-weight: 500;">⚠️ 단어 추출에 실패했습니다: ${escapeHtml(extractErr.message)}</p>
+            </div>
+        `;
+        document.getElementById('word-extract-retry-container').style.display = 'flex';
+        showErrorModal(extractErr.message);
     }
 }
 
@@ -852,55 +915,20 @@ function updateAddWordsButtonState() {
     }
 }
 
-async function retryWordExtraction() {
-    const grid = document.getElementById('extracted-words-grid');
-    if (!grid) return;
-    
-    grid.innerHTML = `
-        <div class="words-loading-container" style="grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem 1.5rem; gap: 15px; color: var(--text-secondary);">
-            <div class="spinner"></div>
-            <p style="margin: 0; font-weight: 500; font-size: 0.95rem;">문장에서 단어 추출 중... 잠시만 기다려 주세요.</p>
-        </div>
-    `;
+window.retryOcr = async function() {
+    document.getElementById('ocr-retry-container').style.display = 'none';
+    await runOcrStep();
+};
 
-    try {
-        const targetLang = document.getElementById('target-lang').value;
-        const detectedSourceLang = window.lastDetectedSourceLang || document.getElementById('source-lang').value;
+window.retryTranslation = async function() {
+    document.getElementById('translate-retry-container').style.display = 'none';
+    await runTranslationStep();
+};
 
-        const extractPayload = {
-            original_text: window.lastOriginalText,
-            translated_text: window.lastTranslatedText,
-            source_lang: detectedSourceLang,
-            target_lang: targetLang
-        };
-
-        const extractResponse = await fetch('/api/extract-words', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(extractPayload)
-        });
-
-        if (!extractResponse.ok) {
-            const errData = await extractResponse.json();
-            throw new Error(errData.error || '단어 추출 요청 실패');
-        }
-
-        const extractResult = await extractResponse.json();
-        extractedWords = extractResult.words || [];
-
-        renderExtractedWordsList();
-
-    } catch (extractErr) {
-        console.error('단어 추출 중 오류 발생:', extractErr);
-        grid.innerHTML = `
-            <div style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: var(--text-danger);">
-                <p style="margin: 0; font-weight: 500;">⚠️ 단어 추출에 실패했습니다: ${escapeHtml(extractErr.message)}</p>
-                <button class="btn btn-secondary" onclick="retryWordExtraction()" style="margin-top: 10px;">다시 시도</button>
-            </div>
-        `;
-        showErrorModal(extractErr.message);
-    }
-}
+window.retryWordExtraction = async function() {
+    document.getElementById('word-extract-retry-container').style.display = 'none';
+    await runWordExtractionStep();
+};
 
 // 7. Add Words to User's Wordbook
 async function addSelectedWordsToMyWordbook() {

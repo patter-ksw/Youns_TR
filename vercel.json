@@ -11,6 +11,10 @@
         {
             "source": "/api/extract-words",
             "destination": "/api/extract-words"
+        },
+        {
+            "source": "/api/ocr",
+            "destination": "/api/ocr"
         }
     ]
 }

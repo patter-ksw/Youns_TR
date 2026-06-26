@@ -50,7 +50,178 @@ class TranslationServerHandler(http.server.SimpleHTTPRequestHandler):
             super().do_GET()
 
     def do_POST(self):
-        if self.path == '/api/translate':
+        if self.path == '/api/ocr':
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_data = self.rfile.read(content_length)
+            
+            try:
+                req_json = json.loads(post_data.decode('utf-8'))
+                image_data = req_json.get('image')
+                
+                env_config = load_env_file(HERE / '.env.local')
+                gemini_key = env_config.get('GEMINI_API_KEY') or os.getenv('GEMINI_API_KEY', '')
+                openai_key = env_config.get('OPENAI_API_KEY') or os.getenv('OPENAI_API_KEY', '')
+                
+                if not gemini_key:
+                    self.send_error_json(400, 'GEMINI_API_KEY가 설정되지 않았습니다. .env.local 파일을 확인하세요.')
+                    return
+                
+                if not image_data:
+                    self.send_error_json(400, '인식할 이미지가 필요합니다.')
+                    return
+                
+                prompt = (
+                    "Perform OCR to extract all readable text from the provided image.\n"
+                    "Do not translate the text, just transcribe it exactly as it appears in the image.\n"
+                    "Provide the output in JSON format matching the schema."
+                )
+                
+                parts = [
+                    {"text": prompt},
+                    {
+                        "inlineData": {
+                            "mimeType": image_data.get("mime_type"),
+                            "data": image_data.get("data")
+                        }
+                    }
+                ]
+                
+                payload = {
+                    "contents": [{
+                        "parts": parts
+                    }],
+                    "generationConfig": {
+                        "responseMimeType": "application/json",
+                        "responseSchema": {
+                            "type": "OBJECT",
+                            "properties": {
+                                "extracted_text": {"type": "STRING", "description": "The exact transcribed text from the image"},
+                                "detected_language": {"type": "STRING", "description": "The detected language code (e.g. ko, en, ja, zh)"}
+                            },
+                            "required": ["extracted_text"]
+                        }
+                    }
+                }
+                
+                timeout_val = 10
+                models_to_try = [
+                    'gemini-2.0-flash',
+                    'gemini-2.0-flash-lite',
+                    'gemini-2.5-flash-lite',
+                    'gemini-3.1-flash-lite',
+                    'gemini-flash-latest',
+                    'gemini-2.5-flash',
+                    'gemini-3.5-flash'
+                ]
+                
+                response_text = ''
+                last_error = None
+                
+                for idx, model_name in enumerate(models_to_try):
+                    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={gemini_key}"
+                    
+                    req = urllib.request.Request(
+                        gemini_url,
+                        data=json.dumps(payload).encode('utf-8'),
+                        headers={'Content-Type': 'application/json'},
+                        method='POST'
+                    )
+                    
+                    try:
+                        print(f"[OCR] Trying Gemini model ({idx + 1}/{len(models_to_try)}): {model_name} (timeout={timeout_val}s)...")
+                        with urllib.request.urlopen(req, timeout=timeout_val) as res:
+                            res_body = res.read().decode('utf-8')
+                            gemini_res = json.loads(res_body)
+                            
+                            candidates = gemini_res.get('candidates', [])
+                            if not candidates:
+                                raise ValueError(f"candidates가 없습니다. 응답: {res_body}")
+                            
+                            candidate = candidates[0]
+                            parts_res = candidate.get('content', {}).get('parts', [])
+                            if not parts_res:
+                                raise ValueError("content parts가 없습니다.")
+                            
+                            response_text = parts_res[0].get('text', '')
+                            print(f"[OCR] Successfully received response from model: {model_name}")
+                            break
+                    except Exception as e:
+                        last_error = f"Exception for model {model_name}: {str(e)}"
+                        print(f"Warning: {last_error}")
+                
+                if not response_text and openai_key:
+                    print("[OCR] Falling back to OpenAI (gpt-4o-mini)...")
+                    try:
+                        messages = [
+                            {
+                                "role": "user",
+                                "content": [
+                                    {"type": "text", "text": prompt},
+                                    {
+                                        "type": "image_url",
+                                        "image_url": {
+                                            "url": f"data:{image_data.get('mime_type')};base64,{image_data.get('data')}"
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                        
+                        openai_payload = {
+                            "model": "gpt-4o-mini",
+                            "messages": messages,
+                            "response_format": {
+                                "type": "json_schema",
+                                "json_schema": {
+                                    "name": "ocr_response",
+                                    "strict": True,
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "extracted_text": { "type": "string" },
+                                            "detected_language": { "type": "string" }
+                                        },
+                                        "required": ["extracted_text", "detected_language"],
+                                        "additionalProperties": False
+                                    }
+                                }
+                            }
+                        }
+                        
+                        req_openai = urllib.request.Request(
+                            "https://api.openai.com/v1/chat/completions",
+                            data=json.dumps(openai_payload).encode('utf-8'),
+                            headers={
+                                'Content-Type': 'application/json',
+                                'Authorization': f'Bearer {openai_key}'
+                            },
+                            method='POST'
+                        )
+                        
+                        with urllib.request.urlopen(req_openai, timeout=timeout_val) as res_openai:
+                            res_body_openai = res_openai.read().decode('utf-8')
+                            openai_res = json.loads(res_body_openai)
+                            response_text = openai_res.get('choices', [{}])[0].get('message', {}).get('content', '')
+                            print("[OCR] Successfully received response from OpenAI")
+                    except Exception as e:
+                        last_error = f"OpenAI fallback failed: {str(e)}"
+                        print(f"Warning: {last_error}")
+                
+                if not response_text:
+                    self.send_error_json(502, f"모든 OCR 모델 호출에 실패했습니다. 마지막 오류: {last_error}")
+                    return
+                
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json; charset=utf-8')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(response_text.encode('utf-8'))
+                
+            except Exception as e:
+                self.send_error_json(500, f"서버 오류: {str(e)}")
+            return
+
+        elif self.path == '/api/translate':
             content_length = int(self.headers.get('Content-Length', 0))
             post_data = self.rfile.read(content_length)
             
@@ -128,13 +299,12 @@ class TranslationServerHandler(http.server.SimpleHTTPRequestHandler):
 
                 # Try multiple models sequentially in case of 429 quota limits or timeouts
                 models_to_try = [
-                    'gemini-flash-latest',
+                    'gemini-2.0-flash',
+                    'gemini-2.0-flash-lite',
                     'gemini-2.5-flash-lite',
                     'gemini-3.1-flash-lite',
-                    'gemini-2.0-flash-lite',
-                    'gemini-flash-lite-latest',
+                    'gemini-flash-latest',
                     'gemini-2.5-flash',
-                    'gemini-2.0-flash',
                     'gemini-3.5-flash'
                 ]
                 
@@ -388,13 +558,12 @@ class TranslationServerHandler(http.server.SimpleHTTPRequestHandler):
                 
                 timeout_val = 15
                 models_to_try = [
-                    'gemini-flash-latest',
+                    'gemini-2.0-flash',
+                    'gemini-2.0-flash-lite',
                     'gemini-2.5-flash-lite',
                     'gemini-3.1-flash-lite',
-                    'gemini-2.0-flash-lite',
-                    'gemini-flash-lite-latest',
+                    'gemini-flash-latest',
                     'gemini-2.5-flash',
-                    'gemini-2.0-flash',
                     'gemini-3.5-flash'
                 ]
                 
