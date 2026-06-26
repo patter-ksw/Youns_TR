@@ -589,13 +589,55 @@ function handleLogout() {
     showToast('🚪 로그아웃 되었습니다.');
 }
 
-// 6. Translation and Word Extraction Logic
 // 6. Translation and Word Extraction Logic (3-Step Pipeline)
 window.tempSourceText = '';
 window.tempTargetText = '';
 window.lastDetectedSourceLang = '';
+window.isTranslating = false;
+
+function setTranslatingState(active, statusText = '') {
+    window.isTranslating = active;
+    const btnTranslate = document.getElementById('btn-translate');
+    const ocrRetryBtn = document.getElementById('btn-ocr-retry');
+    const translateRetryBtn = document.getElementById('btn-translate-retry');
+    const wordRetryBtn = document.getElementById('btn-word-retry');
+
+    if (btnTranslate) {
+        if (active) {
+            btnTranslate.setAttribute('disabled', 'true');
+            btnTranslate.style.opacity = '0.6';
+            btnTranslate.style.pointerEvents = 'none';
+        } else {
+            btnTranslate.removeAttribute('disabled');
+            btnTranslate.style.opacity = '1';
+            btnTranslate.style.pointerEvents = 'auto';
+        }
+    }
+
+    [ocrRetryBtn, translateRetryBtn, wordRetryBtn].forEach(btn => {
+        if (btn) {
+            if (active) {
+                btn.setAttribute('disabled', 'true');
+                btn.style.opacity = '0.6';
+                btn.style.pointerEvents = 'none';
+            } else {
+                btn.removeAttribute('disabled');
+                btn.style.opacity = '1';
+                btn.style.pointerEvents = 'auto';
+            }
+        }
+    });
+
+    if (active && statusText) {
+        showLoading(true, statusText);
+    } else {
+        showLoading(false);
+    }
+}
 
 async function executeTranslation() {
+    if (window.isTranslating) return;
+
     const text = document.getElementById('source-text').value.trim();
     const sourceLang = document.getElementById('source-lang').value;
     const targetLang = document.getElementById('target-lang').value;
@@ -630,10 +672,14 @@ async function executeTranslation() {
 }
 
 async function runOcrStep() {
-    showLoading(true, '이미지에서 글자 추출 중...');
+    setTranslatingState(true, '이미지에서 글자 추출 중...');
     document.getElementById('ocr-retry-container').style.display = 'none';
 
     try {
+        if (!currentFile || !currentFile.base64Data) {
+            throw new Error('첨부된 이미지 파일이 올바르지 않습니다. 다시 파일을 첨부해 주세요.');
+        }
+
         const payload = {
             image: {
                 mime_type: currentFile.mime_type,
@@ -654,6 +700,10 @@ async function runOcrStep() {
 
         const result = await response.json();
         
+        if (!result.extracted_text || !result.extracted_text.trim()) {
+            throw new Error('이미지에서 글자를 인식하지 못했습니다. 글자가 선명한지 또는 이미지 방향이 올바른지 확인해 주세요.');
+        }
+
         // Write the detected text back to source textarea
         window.tempSourceText = result.extracted_text;
         window.lastDetectedSourceLang = result.detected_language || document.getElementById('source-lang').value;
@@ -661,7 +711,7 @@ async function runOcrStep() {
         document.getElementById('source-text').value = result.extracted_text;
         document.getElementById('current-char-count').innerText = result.extracted_text.length;
 
-        showLoading(false);
+        setTranslatingState(false);
         showToast('✔️ 글자 추출 성공! 번역을 시작합니다.');
 
         // Step 1 Success -> Automatically run Step 2 (Translation)
@@ -669,17 +719,21 @@ async function runOcrStep() {
 
     } catch (err) {
         console.error('OCR 처리 오류:', err);
-        showLoading(false);
+        setTranslatingState(false);
         document.getElementById('ocr-retry-container').style.display = 'flex';
         showErrorModal(err.message);
     }
 }
 
 async function runTranslationStep() {
-    showLoading(true, '문장 번역 중...');
+    setTranslatingState(true, '문장 번역 중...');
     document.getElementById('translate-retry-container').style.display = 'none';
 
     try {
+        if (!window.tempSourceText || !window.tempSourceText.trim()) {
+            throw new Error('번역할 원본 텍스트가 없습니다. 텍스트를 입력하거나 이미지를 첨부해 주세요.');
+        }
+
         const payload = {
             text: window.tempSourceText,
             source_lang: window.lastDetectedSourceLang,
@@ -714,7 +768,7 @@ async function runTranslationStep() {
         document.getElementById('btn-source-copy').removeAttribute('disabled');
         document.getElementById('btn-source-tts').removeAttribute('disabled');
 
-        showLoading(false);
+        setTranslatingState(false);
         showToast('✔️ 번역 완료! 단어 추출을 시작합니다.');
 
         // Step 2 Success -> Automatically run Step 3 (Word Extraction)
@@ -722,7 +776,7 @@ async function runTranslationStep() {
 
     } catch (err) {
         console.error('번역 처리 오류:', err);
-        showLoading(false);
+        setTranslatingState(false);
         document.getElementById('translate-retry-container').style.display = 'flex';
         showErrorModal(err.message);
     }
@@ -750,7 +804,13 @@ async function runWordExtractionStep() {
         btnAddWords.setAttribute('disabled', 'true');
     }
 
+    setTranslatingState(true, ''); // lock but do not show full screen loader (use inline loader instead)
+
     try {
+        if (!window.tempSourceText || !window.tempTargetText) {
+            throw new Error('단어 추출을 위한 원본 또는 번역본 데이터가 누락되었습니다.');
+        }
+
         const extractPayload = {
             original_text: window.tempSourceText,
             translated_text: window.tempTargetText,
@@ -784,6 +844,8 @@ async function runWordExtractionStep() {
         `;
         document.getElementById('word-extract-retry-container').style.display = 'flex';
         showErrorModal(extractErr.message);
+    } finally {
+        setTranslatingState(false);
     }
 }
 
