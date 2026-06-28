@@ -474,6 +474,99 @@ function formatBytes(bytes) {
 }
 
 // 5. Auth Handlers
+let isSignupUsernameChecked = false;
+let checkedSignupUsername = "";
+let isSignupNameChecked = false;
+let checkedSignupName = "";
+
+window.resetSignupUsernameCheck = function() {
+    isSignupUsernameChecked = false;
+    checkedSignupUsername = "";
+    const btn = document.getElementById('btn-check-signup-username');
+    if (btn) btn.className = 'btn btn-check-pending';
+};
+
+window.resetSignupNameCheck = function() {
+    isSignupNameChecked = false;
+    checkedSignupName = "";
+    const btn = document.getElementById('btn-check-signup-name');
+    if (btn) btn.className = 'btn btn-check-pending';
+};
+
+window.checkSignupUsername = async function() {
+    if (!supabaseClient) return;
+    const username = document.getElementById('signup-username').value.trim();
+    if (!username) {
+        showToast('아이디를 입력해주세요.', 'warning');
+        return;
+    }
+    
+    try {
+        const { data: existing, error } = await supabaseClient
+            .from('tr_users')
+            .select('id')
+            .eq('username', username)
+            .maybeSingle();
+            
+        if (error) {
+            console.error('Check error:', error);
+            showToast('중복 확인 중 오류가 발생했습니다.', 'danger');
+            return;
+        }
+
+        if (existing) {
+            showToast('동일한 아이디가 사용중입니다.', 'danger');
+            window.resetSignupUsernameCheck();
+        } else {
+            showToast('사용 가능한 아이디입니다.', 'success');
+            isSignupUsernameChecked = true;
+            checkedSignupUsername = username;
+            const btn = document.getElementById('btn-check-signup-username');
+            if (btn) btn.className = 'btn btn-check-done';
+        }
+    } catch (error) {
+        console.error('Check error:', error);
+        showToast('오류가 발생했습니다.', 'danger');
+    }
+};
+
+window.checkSignupName = async function() {
+    if (!supabaseClient) return;
+    const name = document.getElementById('signup-name').value.trim();
+    if (!name) {
+        showToast('이름(닉네임)을 입력해주세요.', 'warning');
+        return;
+    }
+    
+    try {
+        const { data: existing, error } = await supabaseClient
+            .from('tr_users')
+            .select('id')
+            .eq('name', name)
+            .maybeSingle();
+            
+        if (error) {
+            console.error('Check error:', error);
+            showToast('중복 확인 중 오류가 발생했습니다.', 'danger');
+            return;
+        }
+
+        if (existing) {
+            showToast('동일한 이름(닉네임)이 사용중입니다.', 'danger');
+            window.resetSignupNameCheck();
+        } else {
+            showToast('사용 가능한 이름(닉네임)입니다.', 'success');
+            isSignupNameChecked = true;
+            checkedSignupName = name;
+            const btn = document.getElementById('btn-check-signup-name');
+            if (btn) btn.className = 'btn btn-check-done';
+        }
+    } catch (error) {
+        console.error('Check error:', error);
+        showToast('오류가 발생했습니다.', 'danger');
+    }
+};
+
 async function handleLogin(e) {
     e.preventDefault();
     if (!supabaseClient) return;
@@ -528,23 +621,19 @@ async function handleSignup(e) {
     const name = document.getElementById('signup-name').value.trim();
     const password = document.getElementById('signup-password').value.trim();
 
+    if (!isSignupUsernameChecked || checkedSignupUsername !== username) {
+        showToast('먼저 아이디 중복 확인을 해주세요.', 'warning');
+        return;
+    }
+
+    if (!isSignupNameChecked || checkedSignupName !== name) {
+        showToast('먼저 닉네임 중복 확인을 해주세요.', 'warning');
+        return;
+    }
+
     showLoading(true, '회원가입 처리 중...');
 
     try {
-        // Check username duplication
-        const { data: existUser, error: checkError } = await supabaseClient
-            .from('tr_users')
-            .select('id')
-            .eq('username', username)
-            .maybeSingle();
-
-        if (checkError) throw checkError;
-
-        if (existUser) {
-            showToast('⚠️ 이미 존재하는 아이디입니다.', 'danger');
-            showLoading(false);
-            return;
-        }
 
         // Insert new user
         const { data: newUser, error: insertError } = await supabaseClient

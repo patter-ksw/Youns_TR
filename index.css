@@ -193,6 +193,25 @@ header h1 {
     justify-content: center;
 }
 
+.btn-check-pending {
+    background: rgba(139, 92, 246, 0.15);
+    color: var(--accent-purple);
+    border: 1px solid rgba(139, 92, 246, 0.4);
+}
+.btn-check-pending:hover {
+    background: rgba(139, 92, 246, 0.25);
+    transform: translateY(-2px);
+}
+
+.btn-check-done {
+    background: #f3f4f6;
+    color: #9ca3af;
+    border: 1px solid #e5e7eb;
+    box-shadow: none !important;
+    transform: none !important;
+    cursor: default;
+}
+
 .btn-primary {
     background: var(--accent-purple);
     border-color: var(--accent-purple);
